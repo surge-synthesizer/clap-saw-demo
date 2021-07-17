@@ -1,5 +1,11 @@
 #include <clap-plugin.hh>
 #include <atomic>
+#include <array>
+
+#include "stupivoice.h"
+
+#ifndef STUPISAW_H
+#define STUPISAW_H
 
 namespace BaconPaul
 {
@@ -19,11 +25,13 @@ struct StupiSaw : public clap::Plugin
         pmResonance = 94
     };
     static constexpr int nParams = 4;
-    float phase = 0;
 
     std::atomic<double> unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7};
 
+    std::array<StupiVoice, 64> voices;
+
   protected:
+    bool activate(double sampleRate) noexcept override;
     clap_process_status process(const clap_process *process) noexcept override;
     uint32_t audioPortsCount(bool isInput) const noexcept override;
     bool audioPortsInfo(uint32_t index, bool isInput,
@@ -41,3 +49,5 @@ struct StupiSaw : public clap::Plugin
     static clap_plugin_descriptor desc;
 };
 }
+
+#endif

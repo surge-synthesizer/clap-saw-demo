@@ -105,7 +105,6 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
     if (sz != 0)
     {
-        std::cout << "SIZE is " << sz << std::endl;
         for (auto i=0; i<sz; ++i)
         {
             auto evt = ev->get(ev, i);
@@ -115,12 +114,28 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
             {
                 auto n = evt->note;
                 std::cout << "NOte On " << n.key << " " << n.velocity << std::endl;
+                for (auto &v: voices)
+                {
+                    if (v.state == StupiVoice::OFF)
+                    {
+                        v.unison = std::max(1, std::min(7, (int)unisonCount));
+                        v.start(n.key);
+                        break;
+                    }
+                }
             }
                 break;
             case CLAP_EVENT_NOTE_OFF:
             {
                 auto n = evt->note;
                 std::cout << "Note Off " << n.key << " " << n.velocity << std::endl;
+                for (auto &v: voices)
+                {
+                    if (v.key == n.key)
+                    {
+                        v.release();
+                    }
+                }
             }
                 break;
             case CLAP_EVENT_PARAM_VALUE:
@@ -133,17 +148,31 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
     }
 
+    for (auto &v: voices)
+    {
+        if (v.state != StupiVoice::OFF )
+        {
+            v.uniSpread = unisonSpread;
+            v.recalcRates();
+        }
+    }
+
     float **out = process->audio_outputs[0].data32;
     float rate = 440.0 / 44100 ;
     for (int i=0; i<process->frames_count; ++i)
     {
-        for (int c = 0; c < 2; ++c)
+        out[0][i] = 0.f;
+        out[1][i] = 0.f;
+        for (auto &v : voices)
         {
-            out[c][i] = 0.01 * sin(2.0 * 3.14159265 * phase);
+            if (v.state != StupiVoice::OFF)
+            {
+                v.step();
+                out[0][i] += v.L;
+                out[1][i] += v.R;
+            }
         }
-        phase += rate;
     }
-    if (phase > 1) phase -= 1;
     return CLAP_PROCESS_CONTINUE;
 }
 bool StupiSaw::startProcessing() noexcept { return Plugin::startProcessing(); }
@@ -165,6 +194,11 @@ bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
     info->in_place = true;
     info->channel_count = 2;
     info->channel_map = CLAP_CHMAP_STEREO;
+    return true;
+}
+bool StupiSaw::activate(double sampleRate) noexcept {
+    for (auto &v: voices)
+        v.sampleRate = sampleRate;
     return true;
 }
 

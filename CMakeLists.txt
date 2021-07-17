@@ -13,6 +13,7 @@ add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 
 add_library(stupisaw SHARED
         src/stupisaw.cpp
+        src/stupivoice.cpp
         src/stupisaw_pluginentry.cpp)
 target_link_libraries(stupisaw clap-plugin-core)
 set_target_properties(stupisaw PROPERTIES SUFFIX ".clap" PREFIX "")
