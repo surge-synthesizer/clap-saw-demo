@@ -24,8 +24,6 @@ struct StupiSaw : public clap::Plugin
     std::atomic<double> unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7};
 
   protected:
-    bool init() noexcept override;
-    void deactivate() noexcept override;
     clap_process_status process(const clap_process *process) noexcept override;
     uint32_t audioPortsCount(bool isInput) const noexcept override;
     bool audioPortsInfo(uint32_t index, bool isInput,

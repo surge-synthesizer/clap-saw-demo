@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD 14)
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 
 add_library(stupisaw SHARED
-        src/stupisaw_main.cpp)
+        src/stupisaw.cpp
+        src/stupisaw_pluginentry.cpp)
 target_link_libraries(stupisaw clap-plugin-core)
 set_target_properties(stupisaw PROPERTIES SUFFIX ".clap" PREFIX "")

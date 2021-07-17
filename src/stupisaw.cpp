@@ -1,13 +1,16 @@
-#include "stupisaw.h"
+//
+// Created by Paul Walker on 7/17/21.
+//
 
+#include "stupisaw.h"
 #include <iostream>
 #include <cmath>
 
-
 namespace BaconPaul
 {
+
 StupiSaw::StupiSaw(const clap_host *host)
-: clap::Plugin(&desc, host)
+    : clap::Plugin(&desc, host)
 {
     std::cout << "Creating a stupisaw" << std::endl;
 }
@@ -94,23 +97,49 @@ bool StupiSaw::paramsValue(clap_id paramId, double *value) noexcept
 
     return true;
 }
-bool StupiSaw::init() noexcept {
-    assert(!isActive());
-}
-/*
- *
- */
 
-void StupiSaw::deactivate() noexcept { Plugin::deactivate(); }
 clap_process_status StupiSaw::process(const clap_process *process) noexcept
 {
+    auto ev = process->in_events;
+    auto sz = ev->size(ev);
+
+    if (sz != 0)
+    {
+        std::cout << "SIZE is " << sz << std::endl;
+        for (auto i=0; i<sz; ++i)
+        {
+            auto evt = ev->get(ev, i);
+            switch (evt->type)
+            {
+            case CLAP_EVENT_NOTE_ON:
+            {
+                auto n = evt->note;
+                std::cout << "NOte On " << n.key << " " << n.velocity << std::endl;
+            }
+                break;
+            case CLAP_EVENT_NOTE_OFF:
+            {
+                auto n = evt->note;
+                std::cout << "Note Off " << n.key << " " << n.velocity << std::endl;
+            }
+                break;
+            case CLAP_EVENT_PARAM_VALUE:
+            {
+                auto v = evt->param_value;
+                std::cout << "Param Value " << v.param_id << " " << v.value << std::endl;
+            }
+                break;
+            }
+        }
+    }
+
     float **out = process->audio_outputs[0].data32;
-    float rate = 1.0 / 441;
+    float rate = 440.0 / 44100 ;
     for (int i=0; i<process->frames_count; ++i)
     {
         for (int c = 0; c < 2; ++c)
         {
-            out[c][i] = 0.3 * sin(2.0 * 3.14159265 * phase);
+            out[c][i] = 0.01 * sin(2.0 * 3.14159265 * phase);
         }
         phase += rate;
     }
@@ -139,66 +168,4 @@ bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
     return true;
 }
 
-namespace Adapters
-{
-bool clap_init(const char* p)
-{
-    std::cout << "clap_init " << p << std::endl;
-    return true;
-}
-void clap_deinit(void)
-{
-    std::cout << "clap_deinit" << std::endl;
-}
-uint32_t clap_get_plugin_count()
-{
-    std::cout << "clap_get_plugin_count" << std::endl;
-    return 1;
-}
-const clap_plugin_descriptor *clap_get_plugin_descriptor(uint32_t w)
-{
-    std::cout << "clap_get_plugin_descriptor " << w << std::endl;
-    return &StupiSaw::desc;
-}
-
-static const clap_plugin *clap_create_plugin(const clap_host *host, const char* plugin_id)
-{
-    std::cout << "clap_create_plugin " << host << " " << plugin_id << std::endl;
-    if (strcmp(plugin_id, "org.baconpaul.stupisaw"))
-    {
-        std::cout << "Odd - asked for the wrong thing" << std::endl;
-    }
-    auto p = new StupiSaw(host);
-    return p->clapPlugin();
-}
-
-static uint32_t clap_get_invalidation_sources_count(void)
-{
-    return 0;
-}
-
-static const clap_plugin_invalidation_source *clap_get_invalidation_sources(uint32_t index)
-{
-    return nullptr;
-}
-
-static void clap_refresh(void)
-{
-}
-}
-}
-
-extern "C"
-{
-    const CLAP_EXPORT struct clap_plugin_entry clap_plugin_entry = {
-        CLAP_VERSION,
-        BaconPaul::Adapters::clap_init,
-        BaconPaul::Adapters::clap_deinit,
-        BaconPaul::Adapters::clap_get_plugin_count,
-        BaconPaul::Adapters::clap_get_plugin_descriptor, // clap_get_plugin_descriptor,
-        BaconPaul::Adapters::clap_create_plugin, // clap_create_plugin,
-        BaconPaul::Adapters::clap_get_invalidation_sources_count, // clap_get_invalidation_sources_count,
-        BaconPaul::Adapters::clap_get_invalidation_sources, // clap_get_invalidation_sources,
-        BaconPaul::Adapters::clap_refresh, // clap_refresh,
-    };
 }
