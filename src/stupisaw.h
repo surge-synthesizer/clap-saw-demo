@@ -21,12 +21,20 @@ struct StupiSaw : public clap::Plugin
     {
         pmUnisonCount = 1378,
         pmUnisonSpread = 2391,
-        pmCutoff = 17,
-        pmResonance = 94
-    };
-    static constexpr int nParams = 4;
+        pmAmpAttack = 2874,
+        pmAmpRelease = 728,
 
-    std::atomic<double> unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7};
+        pmCutoff = 17,
+        pmResonance = 94,
+
+        pmFilterDecay = 24032,
+        pmFilterModDepth = 238
+    };
+    static constexpr int nParams = 8;
+
+    std::atomic<double> unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7},
+        ampAttack{0.01}, ampRelease{0.2}, filterDecay{0.2}, filterModDepth{0};
+
 
     std::array<StupiVoice, 64> voices;
 
