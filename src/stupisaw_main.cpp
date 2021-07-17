@@ -1,6 +1,7 @@
 #include "stupisaw.h"
 
 #include <iostream>
+#include <cmath>
 
 
 namespace BaconPaul
@@ -91,6 +92,50 @@ bool StupiSaw::paramsValue(clap_id paramId, double *value) noexcept
         break;
     }
 
+    return true;
+}
+bool StupiSaw::init() noexcept {
+    assert(!isActive());
+}
+/*
+ *
+ */
+
+void StupiSaw::deactivate() noexcept { Plugin::deactivate(); }
+clap_process_status StupiSaw::process(const clap_process *process) noexcept
+{
+    float **out = process->audio_outputs[0].data32;
+    float rate = 1.0 / 441;
+    for (int i=0; i<process->frames_count; ++i)
+    {
+        for (int c = 0; c < 2; ++c)
+        {
+            out[c][i] = 0.3 * sin(2.0 * 3.14159265 * phase);
+        }
+        phase += rate;
+    }
+    if (phase > 1) phase -= 1;
+    return CLAP_PROCESS_CONTINUE;
+}
+bool StupiSaw::startProcessing() noexcept { return Plugin::startProcessing(); }
+uint32_t StupiSaw::audioPortsCount(bool isInput) const noexcept
+{
+    return isInput ? 0 : 1;
+}
+bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
+                              clap_audio_port_info *info) const noexcept
+{
+    if (isInput || index != 0)
+        return false;
+
+    info->id = 0;
+    strncpy(info->name, "main", sizeof(info->name));
+    info->is_main = true;
+    info->is_cv = false;
+    info->sample_size = 32;
+    info->in_place = true;
+    info->channel_count = 2;
+    info->channel_map = CLAP_CHMAP_STEREO;
     return true;
 }
 
