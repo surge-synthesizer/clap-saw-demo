@@ -96,17 +96,24 @@ struct StupiSaw : public clap::Plugin
     // Finally I have a static description
     static clap_plugin_descriptor desc;
 
+#if HAS_GUI
+    bool implementsGui() const noexcept override { return true; }
+    static constexpr uint32_t guiw=500, guih=300;
+    void guiSize(uint32_t *width, uint32_t *height) noexcept override
+    {
+        *width = guiw;
+        *height = guih;
+    }
 #if USE_MAC_UI
     // GUI
-    bool implementsGui() const noexcept override { return true; }
     bool implementsGuiCocoa() const noexcept override { return true; };
     bool guiCocoaAttach(void *nsView) noexcept override;
-
-    void guiSize(uint32_t *width, uint32_t *height) noexcept override;
 
   public:
     StupiSawMacUI* editor;
 #endif
+#endif
+
 };
 } // namespace BaconPaul
 

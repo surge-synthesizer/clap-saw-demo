@@ -17,7 +17,7 @@ add_library(stupisaw SHARED
         src/stupisaw_pluginentry.cpp)
 
 if(APPLE)
-    target_compile_definitions(stupisaw PRIVATE USE_MAC_UI=1)
+    target_compile_definitions(stupisaw PRIVATE USE_MAC_UI=1 HAS_GUI=1)
     target_sources(stupisaw PRIVATE src/stupisaw_macgui.mm)
     target_link_libraries(stupisaw "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
 endif()
