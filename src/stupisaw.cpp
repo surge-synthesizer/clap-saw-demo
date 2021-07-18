@@ -5,6 +5,7 @@
 #include "stupisaw.h"
 #include <iostream>
 #include <cmath>
+#include <cstring>
 
 namespace BaconPaul
 {
