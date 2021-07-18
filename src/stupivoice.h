@@ -1,11 +1,20 @@
-//
-// Created by Paul Walker on 7/17/21.
-//
+/*
+ * StupiSaw is Free and Open Source released under the MIT license
+ *
+ * Copright (c) 2021, Paul Walker
+ */
 
 #ifndef STUPISAW_STUPIVOICE_H
 #define STUPISAW_STUPIVOICE_H
 
 #include <array>
+
+/*
+ * This is a simple voice implementation. You almost definitely don't want to spend
+ * much time with it, other than to know it has parameters and when youc all step
+ * it updates the L and R value. It is a bad implementatoin of a unison saw and a
+ * simple biquad filter.
+ */
 
 namespace BaconPaul
 {
@@ -16,14 +25,16 @@ struct StupiVoice
     int unison;
     float uniSpread;
     int key;
-    enum {
+    enum
+    {
         OFF,
         ATTACK,
         HOLD,
         RELEASE
     } state{OFF};
 
-    enum {
+    enum
+    {
         DECAY,
         SUSTAIN
     } filterState{DECAY};
@@ -43,11 +54,11 @@ struct StupiVoice
         float x[2][3], y[2][3];
     } filter;
 
-    std::array<float,max_uni> panL, panR, unitShift, norm;
+    std::array<float, max_uni> panL, panR, unitShift, norm;
     std::array<float, max_uni> phase, dPhase;
 
     float baseFreq{440.0};
-    float srInv{1.0/44100.0};
+    float srInv{1.0 / 44100.0};
 
     float time{0}, filterTime{0};
     float releaseFrom{1.0};
@@ -56,5 +67,5 @@ struct StupiVoice
     float cutoff{69.0}, res{0.7};
     float ampAttack{0.01}, ampRelease{0.1}, filterDecay{0.2}, filterModDepth{30.0};
 };
-}
+} // namespace BaconPaul
 #endif // STUPISAW_STUPIVOICE_H

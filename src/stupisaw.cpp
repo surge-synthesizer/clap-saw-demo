@@ -1,6 +1,8 @@
-//
-// Created by Paul Walker on 7/17/21.
-//
+/*
+ * StupiSaw is Free and Open Source released under the MIT license
+ *
+ * Copright (c) 2021, Paul Walker
+ */
 
 #include "stupisaw.h"
 #include <iostream>
@@ -10,42 +12,78 @@
 namespace BaconPaul
 {
 
-StupiSaw::StupiSaw(const clap_host *host)
-    : clap::Plugin(&desc, host)
+StupiSaw::StupiSaw(const clap_host *host) : clap::Plugin(&desc, host)
 {
-    std::cout << "Creating a stupisaw" << std::endl;
+    std::cout << "Creating BaconPaul::StupiSaw" << std::endl;
+    paramToValue[pmUnisonCount] = &unisonCount;
+    paramToValue[pmUnisonSpread] = &unisonSpread;
+    paramToValue[pmAmpAttack] = &ampAttack;
+    paramToValue[pmAmpRelease] = &ampRelease;
+    paramToValue[pmCutoff] = &cutoff;
+    paramToValue[pmResonance] = &resonance;
+    paramToValue[pmFilterDecay] = &filterDecay;
+    paramToValue[pmFilterModDepth] = &filterModDepth;
 }
 
-clap_plugin_descriptor StupiSaw::desc = {
-    CLAP_VERSION,
-    "org.baconpaul.stupisaw",
-    "StupiSaw",
-    "BaconPaul",
-    "https://baconpaul.org",
-    "https://baconpaul.org/no-manual",
-    "https://baconpaul.org/no-support",
-    "0.9.0",
-    "It's called StupiSaw. What do you expect?",
-    "aliasing;example-code;dont-use",
-    CLAP_PLUGIN_INSTRUMENT
-};
+clap_plugin_descriptor StupiSaw::desc = {CLAP_VERSION,
+                                         "org.baconpaul.stupisaw",
+                                         "StupiSaw",
+                                         "BaconPaul",
+                                         "https://baconpaul.org",
+                                         "https://baconpaul.org/no-manual",
+                                         "https://baconpaul.org/no-support",
+                                         "0.9.0",
+                                         "It's called StupiSaw. What do you expect?",
+                                         "aliasing;example-code;dont-use",
+                                         CLAP_PLUGIN_INSTRUMENT};
 
+/*
+ * Set up a simple stereo output
+ */
+uint32_t StupiSaw::audioPortsCount(bool isInput) const noexcept { return isInput ? 0 : 1; }
+bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
+                              clap_audio_port_info *info) const noexcept
+{
+    if (isInput || index != 0)
+        return false;
 
+    info->id = 0;
+    strncpy(info->name, "main", sizeof(info->name));
+    info->is_main = true;
+    info->is_cv = false;
+    info->sample_size = 32;
+    info->in_place = true;
+    info->channel_count = 2;
+    info->channel_map = CLAP_CHMAP_STEREO;
+    return true;
+}
+
+/*
+ * On activation distribute samplerate to the voices
+ */
+bool StupiSaw::activate(double sampleRate) noexcept
+{
+    for (auto &v : voices)
+        v.sampleRate = sampleRate;
+    return true;
+}
+
+/*
+ * Parameter Handling is mostly validating IDs (via their inclusion in the
+ * param map) and setting the info and getting values from the map pointers.
+ */
 bool StupiSaw::implementsParams() const noexcept { return true; }
 uint32_t StupiSaw::paramsCount() const noexcept { return nParams; }
 bool StupiSaw::isValidParamId(clap_id paramId) const noexcept
 {
-    // This is obviously a bit odd
-    auto res = (paramId == pmUnisonCount || paramId == pmUnisonSpread || paramId == pmCutoff ||
-                paramId == pmResonance || paramId == pmAmpRelease || paramId == pmAmpAttack
-                || paramId == pmFilterModDepth || paramId == pmFilterDecay);
-    return res;
+    return paramToValue.find(paramId) != paramToValue.end();
 }
 bool StupiSaw::paramsInfo(int32_t paramIndex, clap_param_info *info) const noexcept
 {
-    if (paramIndex >= nParams) return false;
+    if (paramIndex >= nParams)
+        return false;
 
-    switch( paramIndex )
+    switch (paramIndex)
     {
     case 0:
         info->id = pmUnisonCount;
@@ -112,43 +150,25 @@ bool StupiSaw::paramsInfo(int32_t paramIndex, clap_param_info *info) const noexc
         info->max_value = 60;
         info->default_value = 30.0;
         break;
-
     }
     return true;
 }
 bool StupiSaw::paramsValue(clap_id paramId, double *value) noexcept
 {
-    switch (paramId)
-    {
-    case pmUnisonCount:
-        *value = unisonCount;
-        break;
-    case pmUnisonSpread:
-        *value = unisonSpread;
-        break;
-    case pmCutoff:
-        *value = cutoff;
-        break;
-    case pmResonance:
-        *value = resonance;
-        break;
-    case pmAmpAttack:
-        *value = ampAttack;
-        break;
-    case pmAmpRelease:
-        *value = ampRelease;
-        break;
-    case pmFilterDecay:
-        *value = filterDecay;
-        break;
-    case pmFilterModDepth:
-        *value = filterModDepth;
-        break;
-    }
-
+    *value = *paramToValue[paramId];
     return true;
 }
 
+/*
+ * Process is a simple algo
+ *
+ * 1. Read input events and update voice state and parameter state
+ * 2. For each running voice, merge it onto the output
+ *
+ * In this implementation I read all the parameters at the top of the block
+ * even though they have a time parameter which would let me interweave them with
+ * my DSP in this implementation.
+ */
 clap_process_status StupiSaw::process(const clap_process *process) noexcept
 {
     auto ev = process->in_events;
@@ -156,16 +176,17 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
     if (sz != 0)
     {
-        for (auto i=0; i<sz; ++i)
+        for (auto i = 0; i < sz; ++i)
         {
             auto evt = ev->get(ev, i);
+
             switch (evt->type)
             {
             case CLAP_EVENT_NOTE_ON:
             {
                 auto n = evt->note;
 
-                for (auto &v: voices)
+                for (auto &v : voices)
                 {
                     if (v.state == StupiVoice::OFF)
                     {
@@ -179,12 +200,12 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                     }
                 }
             }
-                break;
+            break;
             case CLAP_EVENT_NOTE_OFF:
             {
                 auto n = evt->note;
 
-                for (auto &v: voices)
+                for (auto &v : voices)
                 {
                     if (v.state != StupiVoice::OFF && v.key == n.key)
                     {
@@ -192,46 +213,20 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                     }
                 }
             }
-                break;
+            break;
             case CLAP_EVENT_PARAM_VALUE:
             {
                 auto v = evt->param_value;
-                switch (v.param_id)
-                {
-                case pmUnisonSpread:
-                    unisonSpread = v.value;
-                    break;
-                case pmUnisonCount:
-                    unisonCount = v.value;
-                    break;
-                case pmResonance:
-                    resonance = v.value;
-                    break;
-                case pmCutoff:
-                    cutoff = v.value;
-                    break;
-                case pmFilterModDepth:
-                    filterModDepth = v.value;
-                    break;
-                case pmFilterDecay:
-                    filterDecay = v.value;
-                    break;
-                case pmAmpAttack:
-                    ampAttack = v.value;
-                    break;
-                case pmAmpRelease:
-                    ampRelease = v.value;
-                    break;
-                }
+                *paramToValue[v.param_id] = v.value;
             }
-                break;
+            break;
             }
         }
     }
 
-    for (auto &v: voices)
+    for (auto &v : voices)
     {
-        if (v.state != StupiVoice::OFF )
+        if (v.state != StupiVoice::OFF)
         {
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
@@ -241,8 +236,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     }
 
     float **out = process->audio_outputs[0].data32;
-    float rate = 440.0 / 44100 ;
-    for (int i=0; i<process->frames_count; ++i)
+    for (int i = 0; i < process->frames_count; ++i)
     {
         out[0][i] = 0.f;
         out[1][i] = 0.f;
@@ -258,38 +252,12 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     }
     return CLAP_PROCESS_CONTINUE;
 }
-bool StupiSaw::startProcessing() noexcept { return Plugin::startProcessing(); }
-uint32_t StupiSaw::audioPortsCount(bool isInput) const noexcept
-{
-    return isInput ? 0 : 1;
-}
-bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
-                              clap_audio_port_info *info) const noexcept
-{
-    if (isInput || index != 0)
-        return false;
 
-    info->id = 0;
-    strncpy(info->name, "main", sizeof(info->name));
-    info->is_main = true;
-    info->is_cv = false;
-    info->sample_size = 32;
-    info->in_place = true;
-    info->channel_count = 2;
-    info->channel_map = CLAP_CHMAP_STEREO;
-    return true;
-}
-bool StupiSaw::activate(double sampleRate) noexcept {
-    for (auto &v: voices)
-        v.sampleRate = sampleRate;
-    return true;
-}
-bool StupiSaw::implementsGuiCocoa() const noexcept {
-    return true;
-}
-bool StupiSaw::guiCocoaAttach(void *nsView) noexcept {
+bool StupiSaw::implementsGuiCocoa() const noexcept { return true; }
+bool StupiSaw::guiCocoaAttach(void *nsView) noexcept
+{
     std::cout << "Attaching Cocoa GUI" << std::endl;
     return Plugin::guiCocoaAttach(nsView);
 }
 
-}
+} // namespace BaconPaul
