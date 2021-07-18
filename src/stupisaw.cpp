@@ -246,6 +246,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
     }
 
+#if HAS_GUI
     // Now handle any messages from the UI
     StupiSaw::FromUI r;
     while (fromUiQ.try_dequeue(r))
@@ -262,6 +263,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         evt.param_value.value = r.value;
         ov->push_back(ov, &evt);
     }
+#endif
 
 
     for (auto &v : voices)
