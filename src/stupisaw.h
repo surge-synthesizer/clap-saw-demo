@@ -22,6 +22,7 @@
 #include <array>
 #include <unordered_map>
 #include <memory>
+#include <readerwriterqueue.h>
 
 #include "stupivoice.h"
 
@@ -104,12 +105,33 @@ struct StupiSaw : public clap::Plugin
         *width = guiw;
         *height = guih;
     }
+
+    struct ToUI
+    {
+        enum MType
+        {
+            PARAM_VALUE,
+            MIDI_NOTE_ON,
+            MIDI_NOTE_OFF
+        } type;
+
+        uint32_t id; // param-id for PARAM_VALUE, key for noteon/noteoff
+        double value; // value or unused
+    };
+
+    struct FromUI
+    {
+
+    };
+
+    moodycamel::ReaderWriterQueue<ToUI, 4096> toUiQ;
+    moodycamel::ReaderWriterQueue<FromUI, 4096> fromUiQ;
+
 #if USE_MAC_UI
     // GUI
     bool implementsGuiCocoa() const noexcept override { return true; };
     bool guiCocoaAttach(void *nsView) noexcept override;
 
-  public:
     StupiSawMacUI* editor;
 #endif
 #endif

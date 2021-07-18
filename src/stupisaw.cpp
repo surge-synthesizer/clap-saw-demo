@@ -199,6 +199,13 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         break;
                     }
                 }
+#if HAS_GUI
+                auto r = ToUI {
+                    .type=ToUI::MIDI_NOTE_ON,
+                    .id = (uint32_t)n.key
+                };
+                toUiQ.try_enqueue(r);
+#endif
             }
             break;
             case CLAP_EVENT_NOTE_OFF:
@@ -212,12 +219,27 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         v.release();
                     }
                 }
+#if HAS_GUI
+                auto r = ToUI {
+                    .type=ToUI::MIDI_NOTE_OFF,
+                    .id = (uint32_t)n.key
+                };
+                toUiQ.try_enqueue(r);
+#endif
             }
             break;
             case CLAP_EVENT_PARAM_VALUE:
             {
                 auto v = evt->param_value;
                 *paramToValue[v.param_id] = v.value;
+#if HAS_GUI
+                auto r = ToUI {
+                    .type=ToUI::PARAM_VALUE,
+                    .id = v.param_id,
+                    .value = (double)v.value
+                };
+                toUiQ.try_enqueue(r);
+#endif
             }
             break;
             }

@@ -10,6 +10,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 14)
 
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
+add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
 
 add_library(stupisaw SHARED
         src/stupisaw.cpp
@@ -22,5 +23,5 @@ if(APPLE)
     target_link_libraries(stupisaw "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
 endif()
 
-target_link_libraries(stupisaw clap-plugin-core)
+target_link_libraries(stupisaw clap-plugin-core readerwriterqueue)
 set_target_properties(stupisaw PROPERTIES SUFFIX ".clap" PREFIX "")

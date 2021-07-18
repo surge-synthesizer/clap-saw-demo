@@ -1,3 +1,6 @@
 [submodule "libs/clap"]
 	path = libs/clap
 	url = https://github.com/free-audio/clap.git
+[submodule "libs/readerwriterqueue"]
+	path = libs/readerwriterqueue
+	url = https://github.com/cameron314/readerwriterqueue
