@@ -8,10 +8,13 @@
 #if USE_MAC_UI
 @interface StupiSawNSView : NSView{
     BaconPaul::StupiSawMacUI *editor;
+    NSSlider *cutoffSlider;
 }
     - (id)initWithEditor:(BaconPaul::StupiSawMacUI *)cont frame:(NSRect)rect;
     - (void)drawRect:(NSRect)dirtyRect;
     - (void)layout;
+    - (void)sliderChanged;
+    - (void)paramUpdate:(int)id value:(float)value;
 @end
 
 
@@ -55,7 +58,7 @@ struct StupiSawMacUI
                 break;
 
             case StupiSaw::ToUI::PARAM_VALUE:
-
+                [v paramUpdate:r.id value:r.value];
                 [v setNeedsDisplay:TRUE];
                 break;
 
@@ -129,13 +132,37 @@ bool StupiSaw::guiCocoaAttach(void *nsView) noexcept {
         [super layout];
         auto f = [self frame];
         NSLog(@"layout frame : %.2f, %.2f", f.size.width, f.size.height);
+
+        auto sliderF = CGRectMake(10, 150, 300, 30);
+        [cutoffSlider setFrame:sliderF];
     }
 
     - (id)initWithEditor:(BaconPaul::StupiSawMacUI*)cont frame:(NSRect)rect
     {
         self = [super initWithFrame:rect];
         editor = cont;
+
+        cutoffSlider = [[NSSlider alloc] initWithFrame:NSMakeRect(10,50,300,30)];
+        [cutoffSlider setAction:@selector(sliderChanged)];
+        [cutoffSlider setTarget: self];
+        [cutoffSlider setMinValue:1];
+        [cutoffSlider setMaxValue:127];
+        [cutoffSlider setFloatValue:editor->processor->cutoff];
+        [self addSubview: cutoffSlider];
         return self;
+    }
+
+    - (void)sliderChanged
+    {
+        std::cout << "SliderChanged" << std::endl;
+    }
+
+    - (void)paramUpdate:(int)id value:(float)v
+    {
+        if (id == BaconPaul::StupiSaw::pmCutoff)
+        {
+            [cutoffSlider setFloatValue:v];
+        }
     }
 @end
 #endif
