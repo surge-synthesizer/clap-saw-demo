@@ -19,6 +19,17 @@ void StupiVoice::recalcRates()
 
 void StupiVoice::step()
 {
+    auto co = cutoff;
+    if (filterState == DECAY)
+    {
+        auto CM = filterModDepth * ( 1.0 - filterTime / filterDecay );
+        co += CM;
+        co = std::max(1.f, co);
+        filterTime += srInv;
+        if (filterTime > filterDecay )
+            filterState = SUSTAIN;
+    }
+    filter.setCoeff(co, res, srInv);
     float AR = 1.0;
 
     if (state == ATTACK)
@@ -58,14 +69,19 @@ void StupiVoice::step()
         if (phase[i] > 1)
             phase[i] -= 1;
     }
+
+    filter.step(L,R);
 }
 
 void StupiVoice::start(int key)
 {
+    filter.init();
     this->key = key;
     baseFreq = 440.0 * pow( 2.0, (key-69.0)/12.0);
     state = ATTACK;
+    filterState = DECAY;
     time = 0;
+    filterTime = 0;
 
     if (unison == 1)
     {
@@ -90,11 +106,62 @@ void StupiVoice::start(int key)
     }
 
     recalcRates();
+    filter.setCoeff(cutoff, res, srInv);
 }
 
 void StupiVoice::release()
 {
     state = RELEASE;
     time = 0;
+}
+
+void StupiVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
+{
+    auto freq = 440.0 * pow( 2.0, (key-69)/12.0);
+    auto w0 = 2.0 * M_PI * freq * srInv;
+    auto cw0 = std::cos(w0);
+    auto sw0 = std::sin(w0);
+    auto alp = sw0 / (2.0 * res);
+
+    b0 = ( 1.0 - cw0 ) / 2;
+    b1 = 1.0 - cw0;
+    b2 = b0;
+    a0 = 1 + alp;
+    a1 = -2 * cw0;
+    a2 = 1 - alp;
+}
+
+void StupiVoice::StereoBiQuadLPF::step(float &L, float &R)
+{
+    x[0][2] = x[0][1];
+    x[0][1] = x[0][0];
+    x[0][0] = L;
+    x[1][2] = x[1][1];
+    x[1][1] = x[1][0];
+    x[0][0] = R;
+
+    y[0][2] = y[0][1];
+    y[0][1] = y[0][0];
+
+    y[1][2] = y[1][1];
+    y[1][1] = y[1][0];
+
+    for( int c=0; c<2; ++c)
+    {
+        y[c][0] = (b0/a0) * x[c][0] + (b1/a0) * x[c][1] + (b2/a0) * x[c][2]
+        -(a1/a0) * y[c][1] - (a2/a0) * y[c][2];
+    }
+    L = y[0][0];
+    R = y[1][1];
+}
+
+void StupiVoice::StereoBiQuadLPF::init()
+{
+    for( int c=0;c<2;++c)
+        for( int s=0; s<3; ++s)
+        {
+            x[c][s] = 0;
+            y[c][s] = 0;
+        }
 }
 }

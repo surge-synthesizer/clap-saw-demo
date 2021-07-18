@@ -109,8 +109,8 @@ bool StupiSaw::paramsInfo(int32_t paramIndex, clap_param_info *info) const noexc
         strncpy(info->name, "Filter Mod Depth (keys)", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
         info->min_value = -20;
-        info->max_value = 20;
-        info->default_value = 0.0;
+        info->max_value = 60;
+        info->default_value = 30.0;
         break;
 
     }
@@ -234,6 +234,8 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         if (v.state != StupiVoice::OFF )
         {
             v.uniSpread = unisonSpread;
+            v.cutoff = cutoff;
+            v.res = resonance;
             v.recalcRates();
         }
     }
