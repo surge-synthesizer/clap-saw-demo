@@ -282,5 +282,12 @@ bool StupiSaw::activate(double sampleRate) noexcept {
         v.sampleRate = sampleRate;
     return true;
 }
+bool StupiSaw::implementsGuiCocoa() const noexcept {
+    return true;
+}
+bool StupiSaw::guiCocoaAttach(void *nsView) noexcept {
+    std::cout << "Attaching Cocoa GUI" << std::endl;
+    return Plugin::guiCocoaAttach(nsView);
+}
 
 }

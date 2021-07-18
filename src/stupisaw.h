@@ -53,6 +53,10 @@ struct StupiSaw : public clap::Plugin
     bool paramsValue(clap_id paramId, double *value) noexcept override;
     bool startProcessing() noexcept override;
 
+    // GUI
+    bool implementsGuiCocoa() const noexcept override;
+    bool guiCocoaAttach(void *nsView) noexcept override;
+
   public:
     static clap_plugin_descriptor desc;
 };
