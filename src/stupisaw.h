@@ -121,7 +121,8 @@ struct StupiSaw : public clap::Plugin
 
     struct FromUI
     {
-
+        uint32_t id;
+        double value;
     };
 
     moodycamel::ReaderWriterQueue<ToUI, 4096> toUiQ;

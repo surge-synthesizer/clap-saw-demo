@@ -154,7 +154,12 @@ bool StupiSaw::guiCocoaAttach(void *nsView) noexcept {
 
     - (void)sliderChanged
     {
-        std::cout << "SliderChanged" << std::endl;
+        auto v = [cutoffSlider floatValue];
+        BaconPaul::StupiSaw::FromUI f {
+            .id = BaconPaul::StupiSaw::pmCutoff,
+            .value = v
+        };
+        editor->processor->fromUiQ.enqueue(f);
     }
 
     - (void)paramUpdate:(int)id value:(float)v

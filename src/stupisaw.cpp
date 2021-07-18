@@ -246,6 +246,24 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
     }
 
+    // Now handle any messages from the UI
+    StupiSaw::FromUI r;
+    while (fromUiQ.try_dequeue(r))
+    {
+        // So set my value
+        *paramToValue[r.id] = r.value;
+
+        // But we also need to generate outbound message to the host
+        auto ov = process->out_events;
+        clap_event evt {
+            .type = CLAP_EVENT_PARAM_VALUE
+        };
+        evt.param_value.param_id = r.id;
+        evt.param_value.value = r.value;
+        ov->push_back(ov, &evt);
+    }
+
+
     for (auto &v : voices)
     {
         if (v.state != StupiVoice::OFF)
