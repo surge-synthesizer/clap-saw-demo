@@ -21,11 +21,16 @@
 #include <atomic>
 #include <array>
 #include <unordered_map>
+#include <memory>
 
 #include "stupivoice.h"
 
 namespace BaconPaul
 {
+#if USE_MAC_UI
+struct StupiSawMacUI;
+#endif
+
 struct StupiSaw : public clap::Plugin
 {
     StupiSaw(const clap_host *host);
@@ -87,13 +92,21 @@ struct StupiSaw : public clap::Plugin
     bool paramsInfo(int32_t paramIndex, clap_param_info *info) const noexcept override;
     bool paramsValue(clap_id paramId, double *value) noexcept override;
 
-    // GUI
-    bool implementsGuiCocoa() const noexcept override;
-    bool guiCocoaAttach(void *nsView) noexcept override;
-
   public:
     // Finally I have a static description
     static clap_plugin_descriptor desc;
+
+#if USE_MAC_UI
+    // GUI
+    bool implementsGui() const noexcept override { return true; }
+    bool implementsGuiCocoa() const noexcept override { return true; };
+    bool guiCocoaAttach(void *nsView) noexcept override;
+
+    void guiSize(uint32_t *width, uint32_t *height) noexcept override;
+
+  public:
+    StupiSawMacUI* editor;
+#endif
 };
 } // namespace BaconPaul
 

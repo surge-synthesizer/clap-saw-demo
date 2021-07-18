@@ -253,11 +253,4 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     return CLAP_PROCESS_CONTINUE;
 }
 
-bool StupiSaw::implementsGuiCocoa() const noexcept { return true; }
-bool StupiSaw::guiCocoaAttach(void *nsView) noexcept
-{
-    std::cout << "Attaching Cocoa GUI" << std::endl;
-    return Plugin::guiCocoaAttach(nsView);
-}
-
 } // namespace BaconPaul

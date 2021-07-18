@@ -15,5 +15,12 @@ add_library(stupisaw SHARED
         src/stupisaw.cpp
         src/stupivoice.cpp
         src/stupisaw_pluginentry.cpp)
+
+if(APPLE)
+    target_compile_definitions(stupisaw PRIVATE USE_MAC_UI=1)
+    target_sources(stupisaw PRIVATE src/stupisaw_macgui.mm)
+    target_link_libraries(stupisaw "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
+endif()
+
 target_link_libraries(stupisaw clap-plugin-core)
 set_target_properties(stupisaw PROPERTIES SUFFIX ".clap" PREFIX "")
