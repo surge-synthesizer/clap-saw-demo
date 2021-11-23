@@ -17,7 +17,7 @@
  * It is not a synth you would want to use for anything other than demoware
  */
 
-#include <clap-plugin.hh>
+#include <clap/helpers/plugin.hh>
 #include <atomic>
 #include <array>
 #include <unordered_map>
@@ -100,10 +100,11 @@ struct StupiSaw : public clap::Plugin
 #if HAS_GUI
     bool implementsGui() const noexcept override { return true; }
     static constexpr uint32_t guiw=500, guih=300;
-    void guiSize(uint32_t *width, uint32_t *height) noexcept override
+    bool guiSize(uint32_t *width, uint32_t *height) noexcept override
     {
         *width = guiw;
         *height = guih;
+        return true;
     }
 
     struct ToUI

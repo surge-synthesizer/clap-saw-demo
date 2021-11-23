@@ -9,6 +9,11 @@
 #include <cmath>
 #include <cstring>
 
+
+// Eject the core symbols for the plugin
+#include <clap/helpers/plugin.hh>
+#include <clap/helpers/plugin.hxx>
+
 namespace BaconPaul
 {
 

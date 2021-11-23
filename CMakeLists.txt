@@ -7,16 +7,17 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 project(stupisaw VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
+add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
 
 add_library(stupisaw MODULE
         src/stupisaw.cpp
         src/stupivoice.cpp
         src/stupisaw_pluginentry.cpp)
-target_link_libraries(stupisaw clap-plugin-core readerwriterqueue)
+target_link_libraries(stupisaw clap-core clap-helpers readerwriterqueue)
 
 if(APPLE)
     set_target_properties(stupisaw PROPERTIES
