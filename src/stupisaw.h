@@ -99,6 +99,7 @@ struct StupiSaw : public clap::Plugin
 
 #if HAS_GUI
     bool implementsGui() const noexcept override { return true; }
+    bool guiCreate() noexcept override { return true; }
     static constexpr uint32_t guiw=500, guih=300;
     bool guiSize(uint32_t *width, uint32_t *height) noexcept override
     {
