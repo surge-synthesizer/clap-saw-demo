@@ -282,18 +282,32 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
     }
 
+    if (process->audio_outputs_count <= 0 )
+        return CLAP_PROCESS_CONTINUE;
+
     float **out = process->audio_outputs[0].data32;
+    auto chans = process->audio_outputs->channel_count;
+
     for (int i = 0; i < process->frames_count; ++i)
     {
-        out[0][i] = 0.f;
-        out[1][i] = 0.f;
+        for (int ch=0; ch<chans; ++ch)
+        {
+            out[ch][i] = 0.f;
+        }
         for (auto &v : voices)
         {
             if (v.state != StupiVoice::OFF)
             {
                 v.step();
-                out[0][i] += v.L;
-                out[1][i] += v.R;
+                if (chans >= 2)
+                {
+                    out[0][i] += v.L;
+                    out[1][i] += v.R;
+                }
+                else if (chans == 1)
+                {
+                    out[0][i] +=( v.L + v.R) * 0.5;
+                }
             }
         }
     }

@@ -93,6 +93,11 @@ struct StupiSaw : public clap::Plugin
     bool paramsInfo(int32_t paramIndex, clap_param_info *info) const noexcept override;
     bool paramsValue(clap_id paramId, double *value) noexcept override;
 
+    bool implementsState() const noexcept override { return true; }
+    bool stateSave(clap_ostream *strea) noexcept override { return true; }
+    bool stateLoad(clap_istream *strea) noexcept override { return true; }
+
+
   public:
     // Finally I have a static description
     static clap_plugin_descriptor desc;
