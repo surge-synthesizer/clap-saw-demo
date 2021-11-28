@@ -142,7 +142,7 @@ void StupiVoice::StereoBiQuadLPF::step(float &L, float &R)
     x[0][0] = L;
     x[1][2] = x[1][1];
     x[1][1] = x[1][0];
-    x[0][0] = R;
+    x[1][0] = R;
 
     y[0][2] = y[0][1];
     y[0][1] = y[0][0];
@@ -156,7 +156,7 @@ void StupiVoice::StereoBiQuadLPF::step(float &L, float &R)
                   (a1 / a0) * y[c][1] - (a2 / a0) * y[c][2];
     }
     L = y[0][0];
-    R = y[1][1];
+    R = y[1][0];
 }
 
 void StupiVoice::StereoBiQuadLPF::init()
