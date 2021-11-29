@@ -66,7 +66,7 @@ bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
 /*
  * On activation distribute samplerate to the voices
  */
-bool StupiSaw::activate(double sampleRate) noexcept
+bool StupiSaw::activate(double sampleRate, uint32_t minFrameCount, uint32_t maxFrameCount) noexcept
 {
     for (auto &v : voices)
         v.sampleRate = sampleRate;

@@ -73,7 +73,7 @@ struct StupiSaw : public clap::Plugin
      * the data structures, and the audio ports setup sets up a single
      * stereo output.
      */
-    bool activate(double sampleRate) noexcept override;
+    bool activate(double sampleRate, uint32_t minFrameCount, uint32_t maxFrameCount) noexcept override;
     uint32_t audioPortsCount(bool isInput) const noexcept override;
     bool audioPortsInfo(uint32_t index, bool isInput,
                         clap_audio_port_info *info) const noexcept override;
