@@ -7,3 +7,6 @@
 [submodule "libs/clap-helpers"]
 	path = libs/clap-helpers
 	url = https://github.com/free-audio/clap-helpers.git
+[submodule "libs/vstgui"]
+	path = libs/vstgui
+	url = https://github.com/steinbergmedia/vstgui.git

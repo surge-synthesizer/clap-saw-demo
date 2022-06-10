@@ -22,16 +22,20 @@
 
 namespace BaconPaul
 {
-
-namespace Adapters
+namespace Stupisaw
 {
 bool clap_init(const char *p) { return true; }
-void clap_deinit(void) {}
-uint32_t clap_get_plugin_count() { return 1; }
-const clap_plugin_descriptor *clap_get_plugin_descriptor(uint32_t w) { return &StupiSaw::desc; }
-
-static const clap_plugin *clap_create_plugin(const clap_host *host, const char *plugin_id)
+void clap_deinit() {}
+uint32_t clap_get_plugin_count(const clap_plugin_factory *f) { return 1; }
+const clap_plugin_descriptor *clap_get_plugin_descriptor(const clap_plugin_factory *f, uint32_t w)
 {
+    return &StupiSaw::desc;
+}
+
+static const clap_plugin *clap_create_plugin(const clap_plugin_factory *f, const clap_host *host,
+                                             const char *plugin_id)
+{
+    _DBGCOUT << "Creating StupiSaw" << std::endl;
     if (strcmp(plugin_id, StupiSaw::desc.id))
     {
         std::cout << "Warning: CLAP asked for plugin_id '" << plugin_id << "' and stupisaw ID is '"
@@ -42,28 +46,18 @@ static const clap_plugin *clap_create_plugin(const clap_host *host, const char *
     return p->clapPlugin();
 }
 
-static uint32_t clap_get_invalidation_sources_count(void) { return 0; }
-
-static const clap_plugin_invalidation_source *clap_get_invalidation_sources(uint32_t index)
-{
-    return nullptr;
-}
-
-static void clap_refresh(void) {}
-} // namespace Adapters
+static const CLAP_EXPORT struct clap_plugin_factory stupisaw_factory = {
+    BaconPaul::Stupisaw::clap_get_plugin_count,
+    BaconPaul::Stupisaw::clap_get_plugin_descriptor,
+    BaconPaul::Stupisaw::clap_create_plugin,
+};
+static const void *get_factory(const char *factory_id) { return &stupisaw_factory; }
+} // namespace Stupisaw
 } // namespace BaconPaul
 
 extern "C"
 {
-    const CLAP_EXPORT struct clap_plugin_entry clap_plugin_entry = {
-        CLAP_VERSION,
-        BaconPaul::Adapters::clap_init,
-        BaconPaul::Adapters::clap_deinit,
-        BaconPaul::Adapters::clap_get_plugin_count,
-        BaconPaul::Adapters::clap_get_plugin_descriptor,
-        BaconPaul::Adapters::clap_create_plugin,
-        BaconPaul::Adapters::clap_get_invalidation_sources_count,
-        BaconPaul::Adapters::clap_get_invalidation_sources,
-        BaconPaul::Adapters::clap_refresh,
-    };
+    const CLAP_EXPORT struct clap_plugin_entry clap_entry = {
+        CLAP_VERSION, BaconPaul::Stupisaw::clap_init, BaconPaul::Stupisaw::clap_deinit,
+        BaconPaul::Stupisaw::get_factory};
 }

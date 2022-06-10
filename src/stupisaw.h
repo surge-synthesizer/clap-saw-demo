@@ -6,6 +6,9 @@
 
 #ifndef STUPISAW_H
 #define STUPISAW_H
+#include <iostream>
+#define _DBGCOUT std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ") :"
+#define _DBGMARK std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ")" << std::endl;
 
 /*
  * This header file is the clap::Plugin from the plugin-glue helpers which gives
@@ -25,6 +28,7 @@
 #include <readerwriterqueue.h>
 
 #include "stupivoice.h"
+#include <memory>
 
 namespace BaconPaul
 {
@@ -32,9 +36,15 @@ namespace BaconPaul
 struct StupiSawMacUI;
 #endif
 
-struct StupiSaw : public clap::Plugin
+struct StupiEditor;
+
+struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
+                                               clap::helpers::CheckingLevel::Maximal>
 {
     StupiSaw(const clap_host *host);
+    ~StupiSaw();
+
+    StupiEditor *editor{nullptr};
 
     /*
      * I have a set of parameter Ids which are purposefully non-contiguous to
@@ -73,10 +83,18 @@ struct StupiSaw : public clap::Plugin
      * the data structures, and the audio ports setup sets up a single
      * stereo output.
      */
-    bool activate(double sampleRate, uint32_t minFrameCount, uint32_t maxFrameCount) noexcept override;
+    bool activate(double sampleRate, uint32_t minFrameCount,
+                  uint32_t maxFrameCount) noexcept override;
+
+    bool implementsAudioPorts() const noexcept override { return true; }
     uint32_t audioPortsCount(bool isInput) const noexcept override;
     bool audioPortsInfo(uint32_t index, bool isInput,
                         clap_audio_port_info *info) const noexcept override;
+
+    bool implementsNotePorts() const noexcept override { return true; }
+    uint32_t notePortsCount(bool isInput) const noexcept override { return isInput ? 1 : 0; }
+    bool notePortsInfo(uint32_t index, bool isInput,
+                       clap_note_port_info *info) const noexcept override;
 
     /*
      * Process manages the events (midi and automation) and generates the
@@ -90,28 +108,37 @@ struct StupiSaw : public clap::Plugin
     bool implementsParams() const noexcept override;
     bool isValidParamId(clap_id paramId) const noexcept override;
     uint32_t paramsCount() const noexcept override;
-    bool paramsInfo(int32_t paramIndex, clap_param_info *info) const noexcept override;
+    bool paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept override;
     bool paramsValue(clap_id paramId, double *value) noexcept override;
 
     bool implementsState() const noexcept override { return true; }
-    bool stateSave(clap_ostream *strea) noexcept override { return true; }
-    bool stateLoad(clap_istream *strea) noexcept override { return true; }
-
+    bool stateSave(const clap_ostream *strea) noexcept override { return true; }
+    bool stateLoad(const clap_istream *strea) noexcept override { return true; }
 
   public:
     // Finally I have a static description
     static clap_plugin_descriptor desc;
 
-#if HAS_GUI
     bool implementsGui() const noexcept override { return true; }
-    bool guiCreate() noexcept override { return true; }
-    static constexpr uint32_t guiw=500, guih=300;
-    bool guiSize(uint32_t *width, uint32_t *height) noexcept override
+    bool guiIsApiSupported(const char *api, bool isFloating) noexcept override { return true; }
+
+  protected:
+    bool guiCreate(const char *api, bool isFloating) noexcept override;
+    void guiDestroy() noexcept override;
+    bool guiShow() noexcept override;
+    bool guiHide() noexcept override;
+
+  public:
+    bool guiSetParent(const clap_window *window) noexcept override;
+
+    static constexpr uint32_t guiw = 500, guih = 300;
+    bool guiGetSize(uint32_t *width, uint32_t *height) noexcept override
     {
         *width = guiw;
         *height = guih;
         return true;
     }
+    bool guiSetSize(uint32_t width, uint32_t height) noexcept override;
 
     struct ToUI
     {
@@ -122,7 +149,7 @@ struct StupiSaw : public clap::Plugin
             MIDI_NOTE_OFF
         } type;
 
-        uint32_t id; // param-id for PARAM_VALUE, key for noteon/noteoff
+        uint32_t id;  // param-id for PARAM_VALUE, key for noteon/noteoff
         double value; // value or unused
     };
 
@@ -137,13 +164,10 @@ struct StupiSaw : public clap::Plugin
 
 #if USE_MAC_UI
     // GUI
-    bool implementsGuiCocoa() const noexcept override { return true; };
-    bool guiCocoaAttach(void *nsView) noexcept override;
+    bool guiCocoaAttach(void *nsView) noexcept;
 
-    StupiSawMacUI* editor;
+    StupiSawMacUI *editor;
 #endif
-#endif
-
 };
 } // namespace BaconPaul
 

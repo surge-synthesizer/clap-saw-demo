@@ -9,15 +9,18 @@
 #include <cmath>
 #include <cstring>
 
-
 // Eject the core symbols for the plugin
 #include <clap/helpers/plugin.hh>
 #include <clap/helpers/plugin.hxx>
+#include <clap/helpers/host-proxy.hh>
+#include <clap/helpers/host-proxy.hxx>
 
 namespace BaconPaul
 {
 
-StupiSaw::StupiSaw(const clap_host *host) : clap::Plugin(&desc, host)
+StupiSaw::StupiSaw(const clap_host *host)
+    : clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
+                            clap::helpers::CheckingLevel::Maximal>(&desc, host)
 {
     std::cout << "Creating BaconPaul::StupiSaw" << std::endl;
     paramToValue[pmUnisonCount] = &unisonCount;
@@ -30,6 +33,9 @@ StupiSaw::StupiSaw(const clap_host *host) : clap::Plugin(&desc, host)
     paramToValue[pmFilterModDepth] = &filterModDepth;
 }
 
+StupiSaw::~StupiSaw() = default;
+
+const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, nullptr};
 clap_plugin_descriptor StupiSaw::desc = {CLAP_VERSION,
                                          "org.baconpaul.stupisaw",
                                          "StupiSaw",
@@ -39,8 +45,7 @@ clap_plugin_descriptor StupiSaw::desc = {CLAP_VERSION,
                                          "https://baconpaul.org/no-support",
                                          "0.9.0",
                                          "It's called StupiSaw. What do you expect?",
-                                         "aliasing;example-code;dont-use",
-                                         CLAP_PLUGIN_INSTRUMENT};
+                                         features};
 
 /*
  * Set up a simple stereo output
@@ -54,12 +59,9 @@ bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
 
     info->id = 0;
     strncpy(info->name, "main", sizeof(info->name));
-    info->is_main = true;
-    info->is_cv = false;
-    info->sample_size = 32;
-    info->in_place = true;
+    info->flags = CLAP_AUDIO_PORT_IS_MAIN;
     info->channel_count = 2;
-    info->channel_map = CLAP_CHMAP_STEREO;
+    info->port_type = CLAP_PORT_STEREO;
     return true;
 }
 
@@ -75,7 +77,7 @@ bool StupiSaw::activate(double sampleRate, uint32_t minFrameCount, uint32_t maxF
 
 /*
  * Parameter Handling is mostly validating IDs (via their inclusion in the
- * param map) and setting the info and getting values from the map pointers.
+ * param map and setting the info and getting values from the map pointers.
  */
 bool StupiSaw::implementsParams() const noexcept { return true; }
 uint32_t StupiSaw::paramsCount() const noexcept { return nParams; }
@@ -83,10 +85,12 @@ bool StupiSaw::isValidParamId(clap_id paramId) const noexcept
 {
     return paramToValue.find(paramId) != paramToValue.end();
 }
-bool StupiSaw::paramsInfo(int32_t paramIndex, clap_param_info *info) const noexcept
+bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept
 {
     if (paramIndex >= nParams)
         return false;
+
+    info->flags = CLAP_PARAM_IS_AUTOMATABLE;
 
     switch (paramIndex)
     {
@@ -164,6 +168,19 @@ bool StupiSaw::paramsValue(clap_id paramId, double *value) noexcept
     return true;
 }
 
+bool StupiSaw::notePortsInfo(uint32_t index, bool isInput, clap_note_port_info *info) const noexcept
+{
+    if (isInput)
+    {
+        info->id = 1;
+        info->supported_dialects = CLAP_NOTE_DIALECT_MIDI | CLAP_NOTE_DIALECT_CLAP;
+        info->preferred_dialect = CLAP_NOTE_DIALECT_CLAP;
+        strncpy(info->name, "NoteInput", CLAP_NAME_SIZE);
+        return true;
+    }
+    return false;
+}
+
 /*
  * Process is a simple algo
  *
@@ -189,7 +206,8 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
             {
             case CLAP_EVENT_NOTE_ON:
             {
-                auto n = evt->note;
+                auto nevt = reinterpret_cast<const clap_event_note *>(evt);
+                auto n = nevt->key;
 
                 for (auto &v : voices)
                 {
@@ -200,49 +218,42 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         v.ampRelease = ampRelease;
                         v.filterDecay = filterDecay;
                         v.filterModDepth = filterModDepth;
-                        v.start(n.key);
+                        v.start(n);
                         break;
                     }
                 }
 #if HAS_GUI
-                auto r = ToUI {
-                    .type=ToUI::MIDI_NOTE_ON,
-                    .id = (uint32_t)n.key
-                };
+                auto r = ToUI{.type = ToUI::MIDI_NOTE_ON, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
 #endif
             }
             break;
             case CLAP_EVENT_NOTE_OFF:
             {
-                auto n = evt->note;
+                auto nevt = reinterpret_cast<const clap_event_note *>(evt);
+                auto n = nevt->key;
 
                 for (auto &v : voices)
                 {
-                    if (v.state != StupiVoice::OFF && v.key == n.key)
+                    if (v.state != StupiVoice::OFF && v.key == n)
                     {
                         v.release();
                     }
                 }
 #if HAS_GUI
-                auto r = ToUI {
-                    .type=ToUI::MIDI_NOTE_OFF,
-                    .id = (uint32_t)n.key
-                };
+                auto r = ToUI{.type = ToUI::MIDI_NOTE_OFF, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
 #endif
             }
             break;
             case CLAP_EVENT_PARAM_VALUE:
             {
-                auto v = evt->param_value;
-                *paramToValue[v.param_id] = v.value;
+                auto v = reinterpret_cast<const clap_event_param_value *>(evt);
+
+                *paramToValue[v->param_id] = v->value;
 #if HAS_GUI
-                auto r = ToUI {
-                    .type=ToUI::PARAM_VALUE,
-                    .id = v.param_id,
-                    .value = (double)v.value
-                };
+                auto r =
+                    ToUI{.type = ToUI::PARAM_VALUE, .id = v->param_id, .value = (double)v->value};
                 toUiQ.try_enqueue(r);
 #endif
             }
@@ -261,15 +272,18 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
         // But we also need to generate outbound message to the host
         auto ov = process->out_events;
-        clap_event evt {
-            .type = CLAP_EVENT_PARAM_VALUE
-        };
-        evt.param_value.param_id = r.id;
-        evt.param_value.value = r.value;
-        ov->push_back(ov, &evt);
+        auto evt = clap_event_param_value();
+        evt.header.size = sizeof(clap_event_param_value);
+        evt.header.type = (uint16_t)CLAP_EVENT_PARAM_VALUE;
+        evt.header.time = 0; // for now
+        evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        evt.header.flags = 0;
+        evt.param_id = r.id;
+        evt.value = r.value;
+
+        ov->try_push(ov, &(evt.header));
     }
 #endif
-
 
     for (auto &v : voices)
     {
@@ -282,7 +296,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
     }
 
-    if (process->audio_outputs_count <= 0 )
+    if (process->audio_outputs_count <= 0)
         return CLAP_PROCESS_CONTINUE;
 
     float **out = process->audio_outputs[0].data32;
@@ -290,7 +304,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
     for (int i = 0; i < process->frames_count; ++i)
     {
-        for (int ch=0; ch<chans; ++ch)
+        for (int ch = 0; ch < chans; ++ch)
         {
             out[ch][i] = 0.f;
         }
@@ -306,7 +320,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                 }
                 else if (chans == 1)
                 {
-                    out[0][i] +=( v.L + v.R) * 0.5;
+                    out[0][i] += (v.L + v.R) * 0.5;
                 }
             }
         }
