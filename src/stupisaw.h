@@ -125,8 +125,6 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
   protected:
     bool guiCreate(const char *api, bool isFloating) noexcept override;
     void guiDestroy() noexcept override;
-    bool guiShow() noexcept override;
-    bool guiHide() noexcept override;
 
   public:
     bool guiSetParent(const clap_window *window) noexcept override;
@@ -138,7 +136,6 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
         *height = guih;
         return true;
     }
-    bool guiSetSize(uint32_t width, uint32_t height) noexcept override;
 
     struct ToUI
     {
@@ -159,15 +156,11 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
         double value;
     };
 
-    moodycamel::ReaderWriterQueue<ToUI, 4096> toUiQ;
-    moodycamel::ReaderWriterQueue<FromUI, 4096> fromUiQ;
+    typedef moodycamel::ReaderWriterQueue<ToUI, 4096> SynthToUI_Queue_t;
+    typedef moodycamel::ReaderWriterQueue<FromUI, 4096> UIToSynth_Queue_t;
 
-#if USE_MAC_UI
-    // GUI
-    bool guiCocoaAttach(void *nsView) noexcept;
-
-    StupiSawMacUI *editor;
-#endif
+    SynthToUI_Queue_t toUiQ;
+    UIToSynth_Queue_t fromUiQ;
 };
 } // namespace BaconPaul
 

@@ -9,6 +9,10 @@ project(stupisaw VERSION 0.9.0 LANGUAGES C CXX)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
 
+
+# use asan as an option (currently mac only)
+option(USE_SANITIZER "Build and link with ASAN" FALSE)
+
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
@@ -35,6 +39,16 @@ if(APPLE)
             MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/cmake/stupisaw.plist.in
             )
     target_link_libraries(stupisaw "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
+
+
+    target_compile_options(${PROJECT_NAME} PRIVATE
+            $<$<BOOL:${USE_SANITIZER}>:-fsanitize=address>
+            $<$<BOOL:${USE_SANITIZER}>:-fsanitize=undefined>
+            )
+    target_link_options(${PROJECT_NAME} PRIVATE
+            $<$<BOOL:${USE_SANITIZER}>:-fsanitize=address>
+            $<$<BOOL:${USE_SANITIZER}>:-fsanitize=undefined>
+            )
 
     set(products_folder ${CMAKE_BINARY_DIR})
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

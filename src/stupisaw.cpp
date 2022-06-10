@@ -222,10 +222,9 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         break;
                     }
                 }
-#if HAS_GUI
+
                 auto r = ToUI{.type = ToUI::MIDI_NOTE_ON, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
-#endif
             }
             break;
             case CLAP_EVENT_NOTE_OFF:
@@ -240,10 +239,8 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         v.release();
                     }
                 }
-#if HAS_GUI
                 auto r = ToUI{.type = ToUI::MIDI_NOTE_OFF, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
-#endif
             }
             break;
             case CLAP_EVENT_PARAM_VALUE:
@@ -251,22 +248,20 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                 auto v = reinterpret_cast<const clap_event_param_value *>(evt);
 
                 *paramToValue[v->param_id] = v->value;
-#if HAS_GUI
                 auto r =
                     ToUI{.type = ToUI::PARAM_VALUE, .id = v->param_id, .value = (double)v->value};
                 toUiQ.try_enqueue(r);
-#endif
             }
             break;
             }
         }
     }
 
-#if HAS_GUI
     // Now handle any messages from the UI
     StupiSaw::FromUI r;
     while (fromUiQ.try_dequeue(r))
     {
+        _DBGCOUT << "Got an item at " << r.id << std::endl;
         // So set my value
         *paramToValue[r.id] = r.value;
 
@@ -283,7 +278,6 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
         ov->try_push(ov, &(evt.header));
     }
-#endif
 
     for (auto &v : voices)
     {
