@@ -26,7 +26,7 @@ add_library(stupisaw MODULE
 target_link_libraries(stupisaw vstgui clap-core clap-helpers readerwriterqueue)
 # Oh VSTGUI why is your cmake so wierd and broken
 target_include_directories(stupisaw PUBLIC libs/vstgui)
-target_compile_definitions(stupisaw PRIVATE HAS_GUI=1)
+target_compile_definitions(stupisaw PRIVATE HAS_GUI=1 ${VSTGUI_COMPILE_DEFINITIONS})
 
 if(APPLE)
     set_target_properties(stupisaw PROPERTIES

@@ -141,7 +141,7 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
     {
         enum MType
         {
-            PARAM_VALUE,
+            PARAM_VALUE = 0x31,
             MIDI_NOTE_ON,
             MIDI_NOTE_OFF
         } type;
@@ -152,6 +152,12 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
 
     struct FromUI
     {
+        enum MType
+        {
+            BEGIN_EDIT = 0xF9,
+            END_EDIT,
+            ADJUST_VALUE
+        } type;
         uint32_t id;
         double value;
     };

@@ -10,7 +10,6 @@ namespace BaconPaul
 {
 bool StupiSaw::guiCreate(const char *api, bool isFloating) noexcept
 {
-    _DBGMARK;
     static bool everInit{false};
     if (!everInit)
     {
@@ -22,7 +21,6 @@ bool StupiSaw::guiCreate(const char *api, bool isFloating) noexcept
 }
 void StupiSaw::guiDestroy() noexcept
 {
-    _DBGMARK;
     if (editor)
         delete editor;
     editor = nullptr;
@@ -30,31 +28,36 @@ void StupiSaw::guiDestroy() noexcept
 
 bool StupiSaw::guiSetParent(const clap_window *window) noexcept
 {
-    _DBGMARK;
-    editor->getFrame()->open((void *)window->cocoa);
-    editor->setupUI();
+    editor->setupUI(window);
     return true;
 }
 
 StupiEditor::StupiEditor(StupiSaw::SynthToUI_Queue_t &i, StupiSaw::UIToSynth_Queue_t &o)
     : inbound(i), outbound(o)
 {
-    _DBGMARK;
-    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, StupiSaw::guiw, StupiSaw::guih), this);
-    frame->remember();
 }
 
-void StupiEditor::setupUI()
+void StupiEditor::setupUI(const clap_window_t *w)
 {
     _DBGMARK;
 
-    ampAttack = new VSTGUI::CTextButton(VSTGUI::CRect(10, 10, 50, 50), this, 100, "Yo");
-    _DBGCOUT << ampAttack->getTag() << std::endl;
+    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, StupiSaw::guiw, StupiSaw::guih), this);
+    frame->setBackgroundColor(VSTGUI::CColor(0x30, 0x30, 0x80));
+    frame->open(w->cocoa);
+    frame->remember();
+
+    auto q = new VSTGUI::CSlider(VSTGUI::CRect(10, 10, 50, 100), this, tags::env_a, 0, 100, nullptr,
+                                 nullptr);
+    q->setMin(0);
+    q->setMax(1);
+    q->setDrawStyle(VSTGUI::CSlider::kDrawFrame | VSTGUI::CSlider::kDrawValue |
+                    VSTGUI::CSlider::kDrawBack);
+    q->setStyle(VSTGUI::CSlider::kVertical | VSTGUI::CSlider::kBottom);
+    ampAttack = q;
     frame->addView(ampAttack);
 
     idleTimer = new VSTGUI::CVSTGUITimer([this](VSTGUI::CVSTGUITimer *) { this->idle(); }, 33);
     idleTimer->remember();
-
 }
 
 StupiEditor::~StupiEditor()
@@ -65,17 +68,28 @@ StupiEditor::~StupiEditor()
     idleTimer->forget();
 }
 
+uint32_t StupiEditor::paramIdFromTag(int32_t tag)
+{
+    switch (tag)
+    {
+    case tags::env_a:
+        return StupiSaw::pmAmpAttack;
+    }
+    assert(false);
+    return 0;
+}
+
 void StupiEditor::valueChanged(VSTGUI::CControl *c)
 {
     auto t = (tags)c->getTag();
-    std::cout << "ValueChanged " << c->getTag() << " " << c->getValue() << std::endl;
     switch (t)
     {
     case tags::env_a:
     {
         auto q = StupiSaw::FromUI();
         q.value = c->getValue();
-        q.id = StupiSaw::pmAmpAttack;
+        q.id = paramIdFromTag(t);
+        q.type = StupiSaw::FromUI::MType::ADJUST_VALUE;
         outbound.try_enqueue(q);
         break;
     }
@@ -97,6 +111,20 @@ void StupiEditor::idle()
         }
         _DBGCOUT << "inbound " << r.id << " " << r.value << std::endl;
     }
+}
+void StupiEditor::beginEdit(int32_t index)
+{
+    auto q = StupiSaw::FromUI();
+    q.id = paramIdFromTag(index);
+    q.type = StupiSaw::FromUI::MType::BEGIN_EDIT;
+    outbound.try_enqueue(q);
+}
+void StupiEditor::endEdit(int32_t index)
+{
+    auto q = StupiSaw::FromUI();
+    q.id = paramIdFromTag(index);
+    q.type = StupiSaw::FromUI::MType::END_EDIT;
+    outbound.try_enqueue(q);
 }
 
 } // namespace BaconPaul

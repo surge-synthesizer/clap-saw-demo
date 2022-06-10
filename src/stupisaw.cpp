@@ -261,22 +261,43 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     StupiSaw::FromUI r;
     while (fromUiQ.try_dequeue(r))
     {
-        _DBGCOUT << "Got an item at " << r.id << std::endl;
-        // So set my value
-        *paramToValue[r.id] = r.value;
+        switch (r.type)
+        {
+        case FromUI::BEGIN_EDIT:
+        case FromUI::END_EDIT:
+        {
+            auto ov = process->out_events;
+            auto evt = clap_event_param_gesture();
+            evt.header.size = sizeof(clap_event_param_gesture);
+            evt.header.type = (r.type == FromUI::BEGIN_EDIT ? CLAP_EVENT_PARAM_GESTURE_BEGIN
+                                                            : CLAP_EVENT_PARAM_GESTURE_END);
+            evt.header.time = 0;
+            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+            evt.header.flags = 0;
+            evt.param_id = r.id;
+            ov->try_push(ov, &evt.header);
 
-        // But we also need to generate outbound message to the host
-        auto ov = process->out_events;
-        auto evt = clap_event_param_value();
-        evt.header.size = sizeof(clap_event_param_value);
-        evt.header.type = (uint16_t)CLAP_EVENT_PARAM_VALUE;
-        evt.header.time = 0; // for now
-        evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-        evt.header.flags = 0;
-        evt.param_id = r.id;
-        evt.value = r.value;
+            break;
+        }
+        case FromUI::ADJUST_VALUE:
+        {
+            // So set my value
+            *paramToValue[r.id] = r.value;
 
-        ov->try_push(ov, &(evt.header));
+            // But we also need to generate outbound message to the host
+            auto ov = process->out_events;
+            auto evt = clap_event_param_value();
+            evt.header.size = sizeof(clap_event_param_value);
+            evt.header.type = (uint16_t)CLAP_EVENT_PARAM_VALUE;
+            evt.header.time = 0; // for now
+            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+            evt.header.flags = 0;
+            evt.param_id = r.id;
+            evt.value = r.value;
+
+            ov->try_push(ov, &(evt.header));
+        }
+        }
     }
 
     for (auto &v : voices)
