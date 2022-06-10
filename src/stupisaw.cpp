@@ -22,15 +22,12 @@ StupiSaw::StupiSaw(const clap_host *host)
     : clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                             clap::helpers::CheckingLevel::Maximal>(&desc, host)
 {
-    std::cout << "Creating BaconPaul::StupiSaw" << std::endl;
     paramToValue[pmUnisonCount] = &unisonCount;
     paramToValue[pmUnisonSpread] = &unisonSpread;
     paramToValue[pmAmpAttack] = &ampAttack;
     paramToValue[pmAmpRelease] = &ampRelease;
     paramToValue[pmCutoff] = &cutoff;
     paramToValue[pmResonance] = &resonance;
-    paramToValue[pmFilterDecay] = &filterDecay;
-    paramToValue[pmFilterModDepth] = &filterModDepth;
 }
 
 StupiSaw::~StupiSaw() = default;
@@ -92,6 +89,8 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
 
     info->flags = CLAP_PARAM_IS_AUTOMATABLE;
 
+    auto mod = CLAP_PARAM_IS_MODULATABLE | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID;
+
     switch (paramIndex)
     {
     case 0:
@@ -110,6 +109,7 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
         info->min_value = 0;
         info->max_value = 100;
         info->default_value = 10;
+        info->flags |= mod;
         break;
     case 2:
         info->id = pmAmpAttack;
@@ -134,6 +134,7 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
         info->min_value = 1;
         info->max_value = 127;
         info->default_value = 69;
+        info->flags |= mod;
         break;
     case 5:
         info->id = pmResonance;
@@ -142,22 +143,7 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
         info->min_value = 0.0;
         info->max_value = 1.0;
         info->default_value = 0.7;
-        break;
-    case 6:
-        info->id = pmFilterDecay;
-        strncpy(info->name, "Filter Env Delay (s)", CLAP_NAME_SIZE);
-        strncpy(info->module, "Filter", CLAP_NAME_SIZE);
-        info->min_value = 0.0;
-        info->max_value = 1.0;
-        info->default_value = 0.2;
-        break;
-    case 7:
-        info->id = pmFilterModDepth;
-        strncpy(info->name, "Filter Mod Depth (keys)", CLAP_NAME_SIZE);
-        strncpy(info->module, "Filter", CLAP_NAME_SIZE);
-        info->min_value = -20;
-        info->max_value = 60;
-        info->default_value = 30.0;
+        info->flags |= mod;
         break;
     }
     return true;
@@ -204,6 +190,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
             switch (evt->type)
             {
+                // case CLAP_EVENT_MIDI:
             case CLAP_EVENT_NOTE_ON:
             {
                 auto nevt = reinterpret_cast<const clap_event_note *>(evt);
@@ -216,9 +203,8 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                         v.unison = std::max(1, std::min(7, (int)unisonCount));
                         v.ampAttack = ampAttack;
                         v.ampRelease = ampRelease;
-                        v.filterDecay = filterDecay;
-                        v.filterModDepth = filterModDepth;
                         v.start(n);
+                        v.noteid = nevt->note_id;
                         break;
                     }
                 }
@@ -251,6 +237,38 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                 auto r =
                     ToUI{.type = ToUI::PARAM_VALUE, .id = v->param_id, .value = (double)v->value};
                 toUiQ.try_enqueue(r);
+            }
+            case CLAP_EVENT_PARAM_MOD:
+            {
+                auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
+                auto pd = pevt->param_id;
+                if (pevt->note_id >= 0)
+                {
+                    for (auto &v : voices)
+                    {
+                        bool found = false;
+                        if (v.noteid == pevt->note_id)
+                            found = true;
+                        if (found)
+                        {
+                            switch (pd)
+                            {
+                            case paramIds::pmCutoff:
+                            {
+                                v.cutoffMod = pevt->amount;
+                                break;
+                            }
+                            }
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    for (auto v : voices)
+                    {
+                    }
+                }
             }
             break;
             }
@@ -338,6 +356,30 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
                     out[0][i] += (v.L + v.R) * 0.5;
                 }
             }
+        }
+    }
+
+    for (auto &v : voices)
+    {
+        if (v.state == StupiVoice::NEWLY_OFF)
+        {
+            auto ov = process->out_events;
+            v.state = StupiVoice::OFF;
+
+            auto evt = clap_event_note();
+            evt.header.size = sizeof(clap_event_note);
+            evt.header.type = (uint16_t)CLAP_EVENT_NOTE_END;
+            evt.header.time = process->frames_count - 1;
+            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+            evt.header.flags = 0;
+
+            evt.port_index = 0;
+            evt.channel = 0; // FIXME
+            evt.key = v.key;
+            evt.note_id = v.noteid;
+            evt.velocity = 0.0;
+
+            ov->try_push(ov, &(evt.header));
         }
     }
     return CLAP_PROCESS_CONTINUE;

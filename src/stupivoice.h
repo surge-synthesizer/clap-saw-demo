@@ -25,11 +25,13 @@ struct StupiVoice
     int unison;
     float uniSpread;
     int key;
+    int noteid;
     enum
     {
         OFF,
         ATTACK,
         HOLD,
+        NEWLY_OFF,
         RELEASE
     } state{OFF};
 
@@ -65,7 +67,9 @@ struct StupiVoice
     float sampleRate{0};
 
     float cutoff{69.0}, res{0.7};
-    float ampAttack{0.01}, ampRelease{0.1}, filterDecay{0.2}, filterModDepth{30.0};
+    float ampAttack{0.01}, ampRelease{0.1};
+
+    float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0};
 };
 } // namespace BaconPaul
 #endif // STUPISAW_STUPIVOICE_H

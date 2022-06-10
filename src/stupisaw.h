@@ -59,11 +59,8 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
 
         pmCutoff = 17,
         pmResonance = 94,
-
-        pmFilterDecay = 24032,
-        pmFilterModDepth = 238
     };
-    static constexpr int nParams = 8;
+    static constexpr int nParams = 6;
 
     /*
      * Each paramId maps to an atomic double. I use a std::unordered_map for

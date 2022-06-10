@@ -23,16 +23,7 @@ void StupiVoice::recalcRates()
 
 void StupiVoice::step()
 {
-    auto co = cutoff;
-    if (filterState == DECAY)
-    {
-        auto CM = filterModDepth * (1.0 - filterTime / filterDecay);
-        co += CM;
-        co = std::max(1.f, co);
-        filterTime += srInv;
-        if (filterTime > filterDecay)
-            filterState = SUSTAIN;
-    }
+    auto co = cutoff + cutoffMod;
     filter.setCoeff(co, res, srInv);
     float AR = 1.0;
 
@@ -52,7 +43,7 @@ void StupiVoice::step()
         time += srInv;
         if (time >= ampRelease)
         {
-            state = OFF;
+            state = NEWLY_OFF;
         }
     }
     else if (state == HOLD)
