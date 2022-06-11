@@ -1,11 +1,11 @@
 /*
- * StupiSaw is Free and Open Source released under the MIT license
+ * ClapSawDemo is Free and Open Source released under the MIT license
  *
  * Copright (c) 2021, Paul Walker
  */
 
-#ifndef STUPISAW_H
-#define STUPISAW_H
+#ifndef CLAP_SAW_DEMO_H
+#define CLAP_SAW_DEMO_H
 #include <iostream>
 #define _DBGCOUT std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ") :"
 #define _DBGMARK std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ")" << std::endl;
@@ -27,24 +27,21 @@
 #include <memory>
 #include <readerwriterqueue.h>
 
-#include "stupivoice.h"
+#include "saw-voice.h"
 #include <memory>
 
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
-#if USE_MAC_UI
-struct StupiSawMacUI;
-#endif
 
-struct StupiEditor;
+struct ClapSawDemoEditor;
 
-struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
-                                               clap::helpers::CheckingLevel::Maximal>
+struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
+                                                  clap::helpers::CheckingLevel::Maximal>
 {
-    StupiSaw(const clap_host *host);
-    ~StupiSaw();
+    ClapSawDemo(const clap_host *host);
+    ~ClapSawDemo();
 
-    StupiEditor *editor{nullptr};
+    ClapSawDemoEditor *editor{nullptr};
 
     /*
      * I have a set of parameter Ids which are purposefully non-contiguous to
@@ -72,7 +69,7 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
     std::unordered_map<clap_id, std::atomic<double> *> paramToValue;
 
     // "Voice Management" is "have 64 and if you run out oh well"
-    std::array<StupiVoice, 64> voices;
+    std::array<SawDemoVoice, 64> voices;
 
   protected:
     /*
@@ -165,6 +162,6 @@ struct StupiSaw : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandle
     SynthToUI_Queue_t toUiQ;
     UIToSynth_Queue_t fromUiQ;
 };
-} // namespace BaconPaul
+} // namespace sst::clap_saw_demo
 
 #endif

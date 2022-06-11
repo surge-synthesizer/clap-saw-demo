@@ -1,18 +1,18 @@
 /*
- * StupiSaw is Free and Open Source released under the MIT license
+ * ClapSawDemo is Free and Open Source released under the MIT license
  *
  * Copright (c) 2021, Paul Walker
  */
 
-#include "stupivoice.h"
+#include "saw-voice.h"
 #include <cmath>
 
 /*
  * Nothing here is really clap related at all. It just makes some voices.
  */
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
-void StupiVoice::recalcRates()
+void SawDemoVoice::recalcRates()
 {
     for (int i = 0; i < unison; ++i)
     {
@@ -21,7 +21,7 @@ void StupiVoice::recalcRates()
     srInv = 1.0 / sampleRate;
 }
 
-void StupiVoice::step()
+void SawDemoVoice::step()
 {
     auto co = cutoff + cutoffMod;
     filter.setCoeff(co, res, srInv);
@@ -68,7 +68,7 @@ void StupiVoice::step()
     filter.step(L, R);
 }
 
-void StupiVoice::start(int key)
+void SawDemoVoice::start(int key)
 {
     filter.init();
     this->key = key;
@@ -104,13 +104,13 @@ void StupiVoice::start(int key)
     filter.setCoeff(cutoff, res, srInv);
 }
 
-void StupiVoice::release()
+void SawDemoVoice::release()
 {
     state = RELEASE;
     time = 0;
 }
 
-void StupiVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
+void SawDemoVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
 {
     auto freq = 440.0 * pow(2.0, (key - 69) / 12.0);
     auto w0 = 2.0 * M_PI * freq * srInv;
@@ -126,7 +126,7 @@ void StupiVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
     a2 = 1 - alp;
 }
 
-void StupiVoice::StereoBiQuadLPF::step(float &L, float &R)
+void SawDemoVoice::StereoBiQuadLPF::step(float &L, float &R)
 {
     x[0][2] = x[0][1];
     x[0][1] = x[0][0];
@@ -150,7 +150,7 @@ void StupiVoice::StereoBiQuadLPF::step(float &L, float &R)
     R = y[1][0];
 }
 
-void StupiVoice::StereoBiQuadLPF::init()
+void SawDemoVoice::StereoBiQuadLPF::init()
 {
     for (int c = 0; c < 2; ++c)
         for (int s = 0; s < 3; ++s)
@@ -159,4 +159,4 @@ void StupiVoice::StereoBiQuadLPF::init()
             y[c][s] = 0;
         }
 }
-} // namespace BaconPaul
+} // namespace sst::clap_saw_demo

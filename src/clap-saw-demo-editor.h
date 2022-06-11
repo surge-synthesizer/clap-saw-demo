@@ -2,20 +2,20 @@
 // Created by Paul Walker on 6/10/22.
 //
 
-#ifndef STUPISAW_STUPIEDITOR_H
-#define STUPISAW_STUPIEDITOR_H
+#ifndef CLAP_SAW_DEMO_EDITOR_H
+#define CLAP_SAW_DEMO_EDITOR_H
 #include <vstgui/vstgui.h>
-#include "stupisaw.h"
+#include "clap-saw-demo.h"
 
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
-struct StupiEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IControlListener
+struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IControlListener
 {
-    StupiSaw::SynthToUI_Queue_t &inbound;
-    StupiSaw::UIToSynth_Queue_t &outbound;
+    ClapSawDemo::SynthToUI_Queue_t &inbound;
+    ClapSawDemo::UIToSynth_Queue_t &outbound;
 
-    StupiEditor(StupiSaw::SynthToUI_Queue_t &, StupiSaw::UIToSynth_Queue_t &);
-    ~StupiEditor();
+    ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &, ClapSawDemo::UIToSynth_Queue_t &);
+    ~ClapSawDemoEditor();
 
     void valueChanged(VSTGUI::CControl *) override;
     void beginEdit(int32_t index) override;
@@ -39,5 +39,5 @@ struct StupiEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IContr
     VSTGUI::CControl *filtCutoff{nullptr}, *filtRes{nullptr};
     VSTGUI::CControl *filtDecay{nullptr}, *filtModDepth{nullptr};
 };
-} // namespace BaconPaul
-#endif // STUPISAW_STUPIEDITOR_H
+} // namespace sst::clap_saw_demo
+#endif

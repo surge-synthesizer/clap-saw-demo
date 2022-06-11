@@ -1,11 +1,11 @@
 /*
- * StupiSaw is Free and Open Source released under the MIT license
+ * ClapSawDemo is Free and Open Source released under the MIT license
  *
  * Copright (c) 2021, Paul Walker
  */
 
-#ifndef STUPISAW_STUPIVOICE_H
-#define STUPISAW_STUPIVOICE_H
+#ifndef CLAP_SAW_DEMO_VOICE_H
+#define CLAP_SAW_DEMO_VOICE_H
 
 #include <array>
 
@@ -16,9 +16,9 @@
  * simple biquad filter.
  */
 
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
-struct StupiVoice
+struct SawDemoVoice
 {
     static constexpr int max_uni = 7;
 
@@ -71,5 +71,5 @@ struct StupiVoice
 
     float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0};
 };
-} // namespace BaconPaul
-#endif // STUPISAW_STUPIVOICE_H
+} // namespace sst::clap_saw_demo
+#endif

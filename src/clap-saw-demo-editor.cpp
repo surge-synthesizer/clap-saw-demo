@@ -2,13 +2,13 @@
 // Created by Paul Walker on 6/10/22.
 //
 
-#include "stupieditor.h"
-#include "stupisaw.h"
+#include "clap-saw-demo-editor.h"
+#include "clap-saw-demo.h"
 #include <vstgui/lib/vstguiinit.h>
 
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
-bool StupiSaw::guiCreate(const char *api, bool isFloating) noexcept
+bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 {
     static bool everInit{false};
     if (!everInit)
@@ -16,36 +16,37 @@ bool StupiSaw::guiCreate(const char *api, bool isFloating) noexcept
         VSTGUI::init(CFBundleGetMainBundle());
         everInit = true;
     }
-    editor = new StupiEditor(toUiQ, fromUiQ);
+    editor = new ClapSawDemoEditor(toUiQ, fromUiQ);
     return editor != nullptr;
 }
-void StupiSaw::guiDestroy() noexcept
+void ClapSawDemo::guiDestroy() noexcept
 {
     if (editor)
         delete editor;
     editor = nullptr;
 }
 
-bool StupiSaw::guiSetParent(const clap_window *window) noexcept
+bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
 {
     editor->getFrame()->open(window->cocoa);
     editor->setupUI(window);
     return true;
 }
 
-StupiEditor::StupiEditor(StupiSaw::SynthToUI_Queue_t &i, StupiSaw::UIToSynth_Queue_t &o)
+ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
+                                     ClapSawDemo::UIToSynth_Queue_t &o)
     : inbound(i), outbound(o)
 {
-    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, StupiSaw::guiw, StupiSaw::guih), this);
+    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, ClapSawDemo::guiw, ClapSawDemo::guih), this);
     frame->setBackgroundColor(VSTGUI::CColor(0x30, 0x30, 0x80));
     frame->remember();
 }
 
-void StupiEditor::setupUI(const clap_window_t *w)
+void ClapSawDemoEditor::setupUI(const clap_window_t *w)
 {
     _DBGMARK;
 
-    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(10, 5, 200, 40), "StupiSaw");
+    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(10, 5, 200, 40), "ClapSawDemo");
     l->setFont(VSTGUI::kNormalFontVeryBig);
     frame->addView(l);
 
@@ -63,7 +64,7 @@ void StupiEditor::setupUI(const clap_window_t *w)
     idleTimer->remember();
 }
 
-StupiEditor::~StupiEditor()
+ClapSawDemoEditor::~ClapSawDemoEditor()
 {
     _DBGMARK;
     frame->forget();
@@ -71,42 +72,42 @@ StupiEditor::~StupiEditor()
     idleTimer->forget();
 }
 
-uint32_t StupiEditor::paramIdFromTag(int32_t tag)
+uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
 {
     switch (tag)
     {
     case tags::env_a:
-        return StupiSaw::pmAmpAttack;
+        return ClapSawDemo::pmAmpAttack;
     }
     assert(false);
     return 0;
 }
 
-void StupiEditor::valueChanged(VSTGUI::CControl *c)
+void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
 {
     auto t = (tags)c->getTag();
     switch (t)
     {
     case tags::env_a:
     {
-        auto q = StupiSaw::FromUI();
+        auto q = ClapSawDemo::FromUI();
         q.value = c->getValue();
         q.id = paramIdFromTag(t);
-        q.type = StupiSaw::FromUI::MType::ADJUST_VALUE;
+        q.type = ClapSawDemo::FromUI::MType::ADJUST_VALUE;
         outbound.try_enqueue(q);
         break;
     }
     }
 }
 
-void StupiEditor::idle()
+void ClapSawDemoEditor::idle()
 {
-    StupiSaw::ToUI r;
+    ClapSawDemo::ToUI r;
     while (inbound.try_dequeue(r))
     {
-        if (r.type == StupiSaw::ToUI::MType::PARAM_VALUE)
+        if (r.type == ClapSawDemo::ToUI::MType::PARAM_VALUE)
         {
-            if (r.id == StupiSaw::pmAmpAttack)
+            if (r.id == ClapSawDemo::pmAmpAttack)
             {
                 ampAttack->setValue(r.value);
                 ampAttack->invalid();
@@ -115,19 +116,19 @@ void StupiEditor::idle()
         _DBGCOUT << "inbound " << r.id << " " << r.value << std::endl;
     }
 }
-void StupiEditor::beginEdit(int32_t index)
+void ClapSawDemoEditor::beginEdit(int32_t index)
 {
-    auto q = StupiSaw::FromUI();
+    auto q = ClapSawDemo::FromUI();
     q.id = paramIdFromTag(index);
-    q.type = StupiSaw::FromUI::MType::BEGIN_EDIT;
+    q.type = ClapSawDemo::FromUI::MType::BEGIN_EDIT;
     outbound.try_enqueue(q);
 }
-void StupiEditor::endEdit(int32_t index)
+void ClapSawDemoEditor::endEdit(int32_t index)
 {
-    auto q = StupiSaw::FromUI();
+    auto q = ClapSawDemo::FromUI();
     q.id = paramIdFromTag(index);
-    q.type = StupiSaw::FromUI::MType::END_EDIT;
+    q.type = ClapSawDemo::FromUI::MType::END_EDIT;
     outbound.try_enqueue(q);
 }
 
-} // namespace BaconPaul
+} // namespace sst::clap_saw_demo

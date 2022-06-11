@@ -1,10 +1,10 @@
 /*
- * StupiSaw is Free and Open Source released under the MIT license
+ * ClapSawDemo is Free and Open Source released under the MIT license
  *
  * Copright (c) 2021, Paul Walker
  */
 
-#include "stupisaw.h"
+#include "clap-saw-demo.h"
 #include <iostream>
 #include <cmath>
 #include <cstring>
@@ -15,10 +15,10 @@
 #include <clap/helpers/host-proxy.hh>
 #include <clap/helpers/host-proxy.hxx>
 
-namespace BaconPaul
+namespace sst::clap_saw_demo
 {
 
-StupiSaw::StupiSaw(const clap_host *host)
+ClapSawDemo::ClapSawDemo(const clap_host *host)
     : clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                             clap::helpers::CheckingLevel::Maximal>(&desc, host)
 {
@@ -30,26 +30,26 @@ StupiSaw::StupiSaw(const clap_host *host)
     paramToValue[pmResonance] = &resonance;
 }
 
-StupiSaw::~StupiSaw() = default;
+ClapSawDemo::~ClapSawDemo() = default;
 
 const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, nullptr};
-clap_plugin_descriptor StupiSaw::desc = {CLAP_VERSION,
-                                         "org.baconpaul.stupisaw",
-                                         "StupiSaw",
-                                         "BaconPaul",
-                                         "https://baconpaul.org",
-                                         "https://baconpaul.org/no-manual",
-                                         "https://baconpaul.org/no-support",
-                                         "0.9.0",
-                                         "It's called StupiSaw. What do you expect?",
-                                         features};
+clap_plugin_descriptor ClapSawDemo::desc = {CLAP_VERSION,
+                                            "org.surge-synth-team.clap-saw-demo",
+                                            "Clap Saw Demo Synth",
+                                            "Surge Synth team",
+                                            "https://surge-synth-team.org",
+                                            "",
+                                            "",
+                                            "0.9.0",
+                                            "A simple sawtooth synth to show CLAP features.",
+                                            features};
 
 /*
  * Set up a simple stereo output
  */
-uint32_t StupiSaw::audioPortsCount(bool isInput) const noexcept { return isInput ? 0 : 1; }
-bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
-                              clap_audio_port_info *info) const noexcept
+uint32_t ClapSawDemo::audioPortsCount(bool isInput) const noexcept { return isInput ? 0 : 1; }
+bool ClapSawDemo::audioPortsInfo(uint32_t index, bool isInput,
+                                 clap_audio_port_info *info) const noexcept
 {
     if (isInput || index != 0)
         return false;
@@ -65,7 +65,8 @@ bool StupiSaw::audioPortsInfo(uint32_t index, bool isInput,
 /*
  * On activation distribute samplerate to the voices
  */
-bool StupiSaw::activate(double sampleRate, uint32_t minFrameCount, uint32_t maxFrameCount) noexcept
+bool ClapSawDemo::activate(double sampleRate, uint32_t minFrameCount,
+                           uint32_t maxFrameCount) noexcept
 {
     for (auto &v : voices)
         v.sampleRate = sampleRate;
@@ -76,13 +77,13 @@ bool StupiSaw::activate(double sampleRate, uint32_t minFrameCount, uint32_t maxF
  * Parameter Handling is mostly validating IDs (via their inclusion in the
  * param map and setting the info and getting values from the map pointers.
  */
-bool StupiSaw::implementsParams() const noexcept { return true; }
-uint32_t StupiSaw::paramsCount() const noexcept { return nParams; }
-bool StupiSaw::isValidParamId(clap_id paramId) const noexcept
+bool ClapSawDemo::implementsParams() const noexcept { return true; }
+uint32_t ClapSawDemo::paramsCount() const noexcept { return nParams; }
+bool ClapSawDemo::isValidParamId(clap_id paramId) const noexcept
 {
     return paramToValue.find(paramId) != paramToValue.end();
 }
-bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept
+bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept
 {
     if (paramIndex >= nParams)
         return false;
@@ -98,7 +99,7 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
         strncpy(info->name, "Unison Count", CLAP_NAME_SIZE);
         strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
         info->min_value = 1;
-        info->max_value = StupiVoice::max_uni;
+        info->max_value = SawDemoVoice::max_uni;
         info->default_value = 3;
         info->flags |= CLAP_PARAM_IS_STEPPED;
         break;
@@ -148,13 +149,14 @@ bool StupiSaw::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noex
     }
     return true;
 }
-bool StupiSaw::paramsValue(clap_id paramId, double *value) noexcept
+bool ClapSawDemo::paramsValue(clap_id paramId, double *value) noexcept
 {
     *value = *paramToValue[paramId];
     return true;
 }
 
-bool StupiSaw::notePortsInfo(uint32_t index, bool isInput, clap_note_port_info *info) const noexcept
+bool ClapSawDemo::notePortsInfo(uint32_t index, bool isInput,
+                                clap_note_port_info *info) const noexcept
 {
     if (isInput)
     {
@@ -177,7 +179,7 @@ bool StupiSaw::notePortsInfo(uint32_t index, bool isInput, clap_note_port_info *
  * even though they have a time parameter which would let me interweave them with
  * my DSP in this implementation.
  */
-clap_process_status StupiSaw::process(const clap_process *process) noexcept
+clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 {
     auto ev = process->in_events;
     auto sz = ev->size(ev);
@@ -198,7 +200,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
                 for (auto &v : voices)
                 {
-                    if (v.state == StupiVoice::OFF)
+                    if (v.state == SawDemoVoice::OFF)
                     {
                         v.unison = std::max(1, std::min(7, (int)unisonCount));
                         v.ampAttack = ampAttack;
@@ -220,7 +222,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
                 for (auto &v : voices)
                 {
-                    if (v.state != StupiVoice::OFF && v.key == n)
+                    if (v.state != SawDemoVoice::OFF && v.key == n)
                     {
                         v.release();
                     }
@@ -276,7 +278,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     }
 
     // Now handle any messages from the UI
-    StupiSaw::FromUI r;
+    ClapSawDemo::FromUI r;
     while (fromUiQ.try_dequeue(r))
     {
         switch (r.type)
@@ -320,7 +322,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
     for (auto &v : voices)
     {
-        if (v.state != StupiVoice::OFF)
+        if (v.state != SawDemoVoice::OFF)
         {
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
@@ -343,7 +345,7 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
         }
         for (auto &v : voices)
         {
-            if (v.state != StupiVoice::OFF)
+            if (v.state != SawDemoVoice::OFF)
             {
                 v.step();
                 if (chans >= 2)
@@ -361,10 +363,10 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
 
     for (auto &v : voices)
     {
-        if (v.state == StupiVoice::NEWLY_OFF)
+        if (v.state == SawDemoVoice::NEWLY_OFF)
         {
             auto ov = process->out_events;
-            v.state = StupiVoice::OFF;
+            v.state = SawDemoVoice::OFF;
 
             auto evt = clap_event_note();
             evt.header.size = sizeof(clap_event_note);
@@ -385,4 +387,4 @@ clap_process_status StupiSaw::process(const clap_process *process) noexcept
     return CLAP_PROCESS_CONTINUE;
 }
 
-} // namespace BaconPaul
+} // namespace sst::clap_saw_demo

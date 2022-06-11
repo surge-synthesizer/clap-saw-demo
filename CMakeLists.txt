@@ -4,7 +4,7 @@ set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 set(CMAKE_OSX_DEPLOYMENT_TARGET 10.11 CACHE STRING "Build for 10.1")
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-project(stupisaw VERSION 0.9.0 LANGUAGES C CXX)
+project(clap-saw-demo VERSION 0.9.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_STANDARD 17)
@@ -18,27 +18,29 @@ add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
 add_subdirectory(libs/vstgui EXCLUDE_FROM_ALL)
 
-add_library(stupisaw MODULE
-        src/stupisaw.cpp
-        src/stupieditor.cpp
-        src/stupivoice.cpp
-        src/stupisaw_pluginentry.cpp)
-target_link_libraries(stupisaw vstgui clap-core clap-helpers readerwriterqueue)
-# Oh VSTGUI why is your cmake so wierd and broken
-target_include_directories(stupisaw PUBLIC libs/vstgui)
-target_compile_definitions(stupisaw PRIVATE HAS_GUI=1 ${VSTGUI_COMPILE_DEFINITIONS})
+add_library(${PROJECT_NAME} MODULE
+        src/clap-saw-demo.cpp
+        src/clap-saw-demo-editor.cpp
+        src/saw-voice.cpp
+        src/clap-saw-demo-pluginentry.cpp)
+target_link_libraries(${PROJECT_NAME} vstgui clap-core clap-helpers readerwriterqueue)
+
+# VSTGUI doesn't include the include paths and compile definitions in the library
+# targets like other CMake libraries do, so explicitly include them here
+target_include_directories(${PROJECT_NAME} PUBLIC libs/vstgui)
+target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GUI=1 ${VSTGUI_COMPILE_DEFINITIONS})
 
 if(APPLE)
-    set_target_properties(stupisaw PROPERTIES
+    set_target_properties(${PROJECT_NAME} PROPERTIES
             BUNDLE True
             BUNDLE_EXTENSION clap
-            MACOSX_BUNDLE_GUI_IDENTIFIER org.baconpaul.stupisaw
-            MACOSX_BUNDLE_BUNDLE_NAME stupisaw
+            MACOSX_BUNDLE_GUI_IDENTIFIER org.surge-synth-team.${PROJECT_NAME}
+            MACOSX_BUNDLE_BUNDLE_NAME ${PROJECT_NAME}
             MACOSX_BUNDLE_BUNDLE_VERSION "0.1"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "0.1"
-            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/cmake/stupisaw.plist.in
+            MACOSX_BUNDLE_INFO_PLIST ${CMAKE_SOURCE_DIR}/cmake/${PROJECT_NAME}.plist.in
             )
-    target_link_libraries(stupisaw "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
+    target_link_libraries(${PROJECT_NAME} "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
 
 
     target_compile_options(${PROJECT_NAME} PRIVATE
@@ -58,5 +60,5 @@ if(APPLE)
             )
 
 else()
-    set_target_properties(stupisaw PROPERTIES SUFFIX ".clap" PREFIX "")
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")
 endif()
