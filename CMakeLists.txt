@@ -42,8 +42,9 @@ if(APPLE)
             )
     target_link_libraries(${PROJECT_NAME} "-framework CoreFoundation" "-framework AppKit" "-framework CoreGraphics")
 
-
+    target_compile_definitions(${PROJECT_NAME} PRIVATE IS_MAC=1)
     target_compile_options(${PROJECT_NAME} PRIVATE
+            -Werror
             $<$<BOOL:${USE_SANITIZER}>:-fsanitize=address>
             $<$<BOOL:${USE_SANITIZER}>:-fsanitize=undefined>
             )
@@ -58,7 +59,10 @@ if(APPLE)
             COMMAND ${CMAKE_COMMAND} -E make_directory "~/Library/Audio/Plug-Ins/CLAP"
             COMMAND ${CMAKE_COMMAND} -E copy_directory "${products_folder}/${PROJECT_NAME}.clap" "~/Library/Audio/Plug-Ins/CLAP/${PROJECT_NAME}.clap"
             )
-
+elseif(UNIX)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE IS_LINUX=1)
+    set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")
 else()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE IS_WIN=1)
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")
 endif()

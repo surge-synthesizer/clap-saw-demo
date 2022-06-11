@@ -53,6 +53,10 @@ void SawDemoVoice::step()
         releaseFrom = 1.0;
     }
 
+
+    if (ampGate)
+        AR = 1.0;
+
     L = 0;
     R = 0;
     for (int i = 0; i < unison; ++i)
@@ -73,7 +77,7 @@ void SawDemoVoice::start(int key)
     filter.init();
     this->key = key;
     baseFreq = 440.0 * pow(2.0, (key - 69.0) / 12.0);
-    state = ATTACK;
+    state = (ampAttack > 0 ? ATTACK : HOLD);
     filterState = DECAY;
     time = 0;
     filterTime = 0;
@@ -108,6 +112,9 @@ void SawDemoVoice::release()
 {
     state = RELEASE;
     time = 0;
+
+    if (time >= ampRelease)
+        state = NEWLY_OFF;
 }
 
 void SawDemoVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)

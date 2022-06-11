@@ -9,6 +9,7 @@
 #include <iostream>
 #define _DBGCOUT std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ") :"
 #define _DBGMARK std::cout << __FILE__ << ":" << __LINE__ << " (" << __func__ << ")" << std::endl;
+#define _D(x) " [" << #x << "=" << x << "] "
 
 /*
  * This header file is the clap::Plugin from the plugin-glue helpers which gives
@@ -53,20 +54,21 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         pmUnisonSpread = 2391,
         pmAmpAttack = 2874,
         pmAmpRelease = 728,
+        pmAmpIsGate = 1942,
+
+        pmPreFilterVCA = 87612,
 
         pmCutoff = 17,
         pmResonance = 94,
     };
-    static constexpr int nParams = 6;
+    static constexpr int nParams = 8;
 
-    /*
-     * Each paramId maps to an atomic double. I use a std::unordered_map for
-     * that but of course other ways could work (like switch statements at the
-     * appropriate point or so on)
-     */
-    std::atomic<double> unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7},
-        ampAttack{0.01}, ampRelease{0.2}, filterDecay{0.2}, filterModDepth{0};
-    std::unordered_map<clap_id, std::atomic<double> *> paramToValue;
+    // These items are ONLY read and written on the audio thread, so they
+    // are safe to be non-atomic doubles. We keep a map to locate them
+    // for parameter updates.
+    double unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7},
+        ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0};
+    std::unordered_map<clap_id, double *> paramToValue;
 
     // "Voice Management" is "have 64 and if you run out oh well"
     std::array<SawDemoVoice, 64> voices;
@@ -109,28 +111,48 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     bool stateSave(const clap_ostream *strea) noexcept override { return true; }
     bool stateLoad(const clap_istream *strea) noexcept override { return true; }
 
+    bool implementsVoiceInfo() const noexcept override { return true; }
+    bool voiceInfoGet(clap_voice_info *info) noexcept override
+    {
+        info->voice_capacity = 64;
+        info->voice_count = 64;
+        info->flags = CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES;
+        return true;
+    }
+
   public:
     // Finally I have a static description
     static clap_plugin_descriptor desc;
 
-    bool implementsGui() const noexcept override { return true; }
-    bool guiIsApiSupported(const char *api, bool isFloating) noexcept override { return true; }
-
   protected:
+    // These are implemented in clap-saw-demo-editor.
+    bool implementsGui() const noexcept override { return true; }
+    bool guiIsApiSupported(const char *api, bool isFloating) noexcept override;
+
     bool guiCreate(const char *api, bool isFloating) noexcept override;
     void guiDestroy() noexcept override;
-
-  public:
     bool guiSetParent(const clap_window *window) noexcept override;
 
-    static constexpr uint32_t guiw = 500, guih = 300;
+    bool guiCanResize() const noexcept override { return true; }
+    bool guiAdjustSize(uint32_t *width, uint32_t *height) noexcept override;
+    bool guiSetSize(uint32_t width, uint32_t height) noexcept override;
     bool guiGetSize(uint32_t *width, uint32_t *height) noexcept override
     {
-        *width = guiw;
-        *height = guih;
+        *width = GUI_DEFAULT_W;
+        *height = GUI_DEFAULT_H;
         return true;
     }
 
+  public:
+    static constexpr uint32_t GUI_DEFAULT_W = 500, GUI_DEFAULT_H = 300;
+
+  public:
+    /*
+     * We use three basic data structures to communicate between the UI and the
+     * DSP code. Two queues of data for parameter updates and notes one structure
+     * full of atomics which we read in our idle loop for repaints with an atomic
+     * update count.
+     */
     struct ToUI
     {
         enum MType
@@ -155,6 +177,12 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         uint32_t id;
         double value;
     };
+
+    struct DataCopyForUI
+    {
+        std::atomic<uint32_t> updateCount;
+        std::atomic<int> polyphony;
+    } dataCopyForUI;
 
     typedef moodycamel::ReaderWriterQueue<ToUI, 4096> SynthToUI_Queue_t;
     typedef moodycamel::ReaderWriterQueue<FromUI, 4096> UIToSynth_Queue_t;

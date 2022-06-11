@@ -26,8 +26,10 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     paramToValue[pmUnisonSpread] = &unisonSpread;
     paramToValue[pmAmpAttack] = &ampAttack;
     paramToValue[pmAmpRelease] = &ampRelease;
+    paramToValue[pmAmpIsGate] = &ampIsGate;
     paramToValue[pmCutoff] = &cutoff;
     paramToValue[pmResonance] = &resonance;
+    paramToValue[pmPreFilterVCA] = &preFilterVCA;
 }
 
 ClapSawDemo::~ClapSawDemo() = default;
@@ -129,6 +131,24 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->default_value = 0.2;
         break;
     case 4:
+        info->id = pmAmpIsGate;
+        strncpy(info->name, "Amplitude Plain Gate", CLAP_NAME_SIZE);
+        strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
+        info->min_value = 0;
+        info->max_value = 1;
+        info->default_value = 0;
+        info->flags |= CLAP_PARAM_IS_STEPPED;
+        break;
+    case 5:
+        info->id = pmPreFilterVCA;
+        strncpy(info->name, "Pre Filter VCA", CLAP_NAME_SIZE);
+        strncpy(info->module, "Filter", CLAP_NAME_SIZE);
+        info->min_value = 0;
+        info->max_value = 1;
+        info->default_value = 1;
+        info->flags |= mod;
+        break;
+    case 6:
         info->id = pmCutoff;
         strncpy(info->name, "Cutoff in Keys", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -137,7 +157,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->default_value = 69;
         info->flags |= mod;
         break;
-    case 5:
+    case 7:
         info->id = pmResonance;
         strncpy(info->name, "Resonance", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -205,12 +225,15 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                         v.unison = std::max(1, std::min(7, (int)unisonCount));
                         v.ampAttack = ampAttack;
                         v.ampRelease = ampRelease;
+                        v.ampGate = ampIsGate > 0.5;
                         v.start(n);
                         v.noteid = nevt->note_id;
                         break;
                     }
                 }
 
+                dataCopyForUI.updateCount ++;
+                dataCopyForUI.polyphony ++;
                 auto r = ToUI{.type = ToUI::MIDI_NOTE_ON, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
             }
@@ -227,6 +250,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                         v.release();
                     }
                 }
+
                 auto r = ToUI{.type = ToUI::MIDI_NOTE_OFF, .id = (uint32_t)n};
                 toUiQ.try_enqueue(r);
             }
@@ -322,7 +346,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
     for (auto &v : voices)
     {
-        if (v.state != SawDemoVoice::OFF)
+        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
         {
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
@@ -345,7 +369,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
         for (auto &v : voices)
         {
-            if (v.state != SawDemoVoice::OFF)
+            if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
             {
                 v.step();
                 if (chans >= 2)
@@ -382,9 +406,12 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
             evt.velocity = 0.0;
 
             ov->try_push(ov, &(evt.header));
+
+
+            dataCopyForUI.updateCount ++;
+            dataCopyForUI.polyphony --;
         }
     }
     return CLAP_PROCESS_CONTINUE;
 }
-
 } // namespace sst::clap_saw_demo
