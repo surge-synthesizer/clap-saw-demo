@@ -33,8 +33,6 @@ struct StupiEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IContr
     VSTGUI::CVSTGUITimer *idleTimer;
 
   private:
-    VSTGUI::CFrame *frame{nullptr};
-
     // These are all weak references owned by the frame
     VSTGUI::CControl *ampAttack{nullptr}, *ampRelease{nullptr};
     VSTGUI::CControl *oscUnison{nullptr}, *oscSpread{nullptr};

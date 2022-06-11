@@ -28,6 +28,7 @@ void StupiSaw::guiDestroy() noexcept
 
 bool StupiSaw::guiSetParent(const clap_window *window) noexcept
 {
+    editor->getFrame()->open(window->cocoa);
     editor->setupUI(window);
     return true;
 }
@@ -35,18 +36,20 @@ bool StupiSaw::guiSetParent(const clap_window *window) noexcept
 StupiEditor::StupiEditor(StupiSaw::SynthToUI_Queue_t &i, StupiSaw::UIToSynth_Queue_t &o)
     : inbound(i), outbound(o)
 {
+    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, StupiSaw::guiw, StupiSaw::guih), this);
+    frame->setBackgroundColor(VSTGUI::CColor(0x30, 0x30, 0x80));
+    frame->remember();
 }
 
 void StupiEditor::setupUI(const clap_window_t *w)
 {
     _DBGMARK;
 
-    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, StupiSaw::guiw, StupiSaw::guih), this);
-    frame->setBackgroundColor(VSTGUI::CColor(0x30, 0x30, 0x80));
-    frame->open(w->cocoa);
-    frame->remember();
+    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(10, 5, 200, 40), "StupiSaw");
+    l->setFont(VSTGUI::kNormalFontVeryBig);
+    frame->addView(l);
 
-    auto q = new VSTGUI::CSlider(VSTGUI::CRect(10, 10, 50, 100), this, tags::env_a, 0, 100, nullptr,
+    auto q = new VSTGUI::CSlider(VSTGUI::CRect(10, 30, 55, 100), this, tags::env_a, 0, 100, nullptr,
                                  nullptr);
     q->setMin(0);
     q->setMax(1);
