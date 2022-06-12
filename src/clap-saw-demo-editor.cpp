@@ -6,14 +6,94 @@
 #include "clap-saw-demo.h"
 #include <vstgui/lib/vstguiinit.h>
 
+#if IS_LINUX
+#include "vstgui/lib/platform/platform_x11.h"
+#include "vstgui/lib/platform/linux/x11platform.h"
+#include <map>
+#endif
+
 namespace sst::clap_saw_demo
 {
+#if IS_LINUX
+struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
+{
+    ClapSawDemo *plugin{nullptr};
+    ClapRunLoop(ClapSawDemo *p) : plugin(p) {}
+
+    std::map<int, VSTGUI::X11::IEventHandler *> eventHandlers;
+    bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
+    {
+        _DBGCOUT << _D(fd) << _D(handler) << std::endl;
+        plugin->registerPosixFd(fd);
+        eventHandlers[fd] = handler;
+        return false;
+    }
+    bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override {
+        _DBGCOUT << _D(handler) << std::endl;
+        for (const auto &[k,v] : eventHandlers)
+            if (v == handler)
+                return plugin->unregisterPosixFD(k);
+        return false;
+    }
+    bool fireFd(int fd)
+    {
+        for (const auto &[k,v] : eventHandlers)
+        {
+            if (k == fd)
+                v->onEvent();
+        }
+    }
+
+    std::map<clap_id, VSTGUI::X11::ITimerHandler *> timerHandlers;
+    bool registerTimer(uint64_t interval, VSTGUI::X11::ITimerHandler *handler) override
+    {
+        _DBGCOUT << _D(interval) << _D(handler) << std::endl;
+        clap_id id;
+        auto res = plugin->registerTimer(interval, &id);
+        timerHandlers[id] = handler;
+        return res;
+    }
+    bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override {
+        for (const auto &[k,v] : timerHandlers)
+            if (v == handler)
+                return plugin->unregisterTimer(k);
+        return false;
+    }
+    bool fireTimer(clap_id id)
+    {
+        for (const auto &[k,v] : timerHandlers)
+        {
+            if (k == id)
+                v->onTimer();
+        }
+    }
+};
+
+void ClapSawDemo::onTimer(clap_id timerId) noexcept
+{
+    auto rlp = VSTGUI::X11::RunLoop::get().get();
+    auto clp = reinterpret_cast<ClapRunLoop *>(rlp);
+    clp->fireTimer(timerId);
+}
+void ClapSawDemo::onPosixFd(int fd, int flags) noexcept
+{
+    auto rlp = VSTGUI::X11::RunLoop::get().get();
+    auto clp = reinterpret_cast<ClapRunLoop *>(rlp);
+    clp->fireFd(fd);
+}
+#endif
+
 bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 {
     if (isFloating)
         return false;
 #if IS_MAC
     if (strcmp(api, CLAP_WINDOW_API_COCOA) == 0)
+        return true;
+#endif
+
+#if IS_LINUX
+    if (strcmp(api, CLAP_WINDOW_API_X11) == 0)
         return true;
 #endif
 
@@ -26,6 +106,10 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
     {
 #if IS_MAC
         VSTGUI::init(CFBundleGetMainBundle());
+#endif
+#if IS_LINUX
+        VSTGUI::init(nullptr);
+        VSTGUI::X11::RunLoop::init(VSTGUI::owned(new ClapRunLoop(this)));
 #endif
         everInit = true;
     }
@@ -49,7 +133,11 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
 {
 #if IS_MAC
     editor->getFrame()->open(window->cocoa);
-#else
+#endif
+#if IS_LINUX
+    editor->getFrame()->open((void*)(window->x11));
+#endif
+#if IS_WINDOWS
     assert(false);
 #endif
     editor->setupUI(window);

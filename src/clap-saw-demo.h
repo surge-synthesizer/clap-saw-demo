@@ -143,6 +143,27 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         return true;
     }
 
+#if IS_LINUX
+  public:
+    bool implementsTimerSupport() const noexcept override {
+        _DBGMARK;
+        return true;
+    }
+    void onTimer(clap_id timerId) noexcept override ;
+
+    bool registerTimer(uint32_t interv, clap_id *id);
+    bool unregisterTimer(clap_id id);
+
+    bool implementsPosixFdSupport() const noexcept override {
+        _DBGMARK;
+        return true;
+    }
+    void onPosixFd(int fd, int flags) noexcept override;
+    bool registerPosixFd(int fd);
+    bool unregisterPosixFD(int fd);
+
+#endif
+
   public:
     static constexpr uint32_t GUI_DEFAULT_W = 500, GUI_DEFAULT_H = 300;
 

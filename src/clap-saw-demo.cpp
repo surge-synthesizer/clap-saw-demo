@@ -414,4 +414,25 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     }
     return CLAP_PROCESS_CONTINUE;
 }
+
+#if IS_LINUX
+bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
+{
+    return _host.timerSupportRegister(interv, id);
+}
+bool ClapSawDemo::unregisterTimer(clap_id id)
+{
+    return _host.timerSupportUnregister(id);
+}
+bool ClapSawDemo::registerPosixFd(int fd) {
+    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
+}
+bool ClapSawDemo::unregisterPosixFD(int fd)
+{
+    return _host.posixFdSupportUnregister(fd);
+}
+#endif
+
+
+
 } // namespace sst::clap_saw_demo
