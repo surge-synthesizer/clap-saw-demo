@@ -36,11 +36,20 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
     bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override {
         _DBGCOUT << _D(handler) << std::endl;
-        auto res = false;
-        for (const auto &[k,v] : eventHandlers)
+        auto it = eventHandlers.begin();
+        while( it != eventHandlers.end())
+        {
+            const auto &[k, v] = *it;
             if (v == handler)
-                res = plugin->unregisterPosixFD(k);
-        return res;
+            {
+                _DBGCOUT << "Found an event handler to erase" << std::endl;
+                eventHandlers.erase(it);
+                return plugin->unregisterPosixFD(k);
+            }
+            it++;
+        }
+
+        return false;
     }
     void fireFd(int fd)
     {
@@ -62,9 +71,18 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
     bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override {
         _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
-        for (const auto &[k,v] : timerHandlers)
+        auto it = timerHandlers.begin();
+        while( it != timerHandlers.end())
+        {
+            const auto &[k, v] = *it;
             if (v == handler)
+            {
+                _DBGCOUT << "Found a timer handler to erase" << std::endl;
+                timerHandlers.erase(it);
                 return plugin->unregisterTimer(k);
+            }
+            it++;
+        }
         return false;
     }
     void fireTimer(clap_id id)
