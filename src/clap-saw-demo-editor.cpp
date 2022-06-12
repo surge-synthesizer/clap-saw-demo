@@ -154,7 +154,7 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     editor->getFrame()->open(window->cocoa);
 #endif
 #if IS_LINUX
-    must have external linkage in order to be exported/imported
+    editor->getFrame()->open((void*)(window->x11));
 #endif
 #if IS_WIN
     editor->getFrame()->open(window->win32);
