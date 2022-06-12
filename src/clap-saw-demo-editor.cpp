@@ -18,24 +18,27 @@ namespace sst::clap_saw_demo
 struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
 {
     ClapSawDemo *plugin{nullptr};
-    ClapRunLoop(ClapSawDemo *p) : plugin(p) {}
+    ClapRunLoop(ClapSawDemo *p) : plugin(p) {
+        _DBGCOUT << "Creating ClapRunLoop" << std::endl;
+    }
 
     std::multimap<int, VSTGUI::X11::IEventHandler *> eventHandlers;
     bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(fd) << _D(handler) << std::endl;
-        plugin->registerPosixFd(fd);
+        auto res = plugin->registerPosixFd(fd);
         eventHandlers.insert({fd,handler});
-        return false;
+        return res;
     }
     bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override {
         _DBGCOUT << _D(handler) << std::endl;
+        auto res = false;
         for (const auto &[k,v] : eventHandlers)
             if (v == handler)
-                return plugin->unregisterPosixFD(k);
-        return false;
+                res = plugin->unregisterPosixFD(k);
+        return res;
     }
-    bool fireFd(int fd)
+    void fireFd(int fd)
     {
         for (const auto &[k,v] : eventHandlers)
         {
@@ -54,12 +57,13 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         return res;
     }
     bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override {
+        _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
         for (const auto &[k,v] : timerHandlers)
             if (v == handler)
                 return plugin->unregisterTimer(k);
         return false;
     }
-    bool fireTimer(clap_id id)
+    void fireTimer(clap_id id)
     {
         for (const auto &[k,v] : timerHandlers)
         {

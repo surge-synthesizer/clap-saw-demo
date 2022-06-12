@@ -22,6 +22,7 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     : clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                             clap::helpers::CheckingLevel::Maximal>(&desc, host)
 {
+    _DBGCOUT << "Constructing ClapSawDemo" << std::endl;
     paramToValue[pmUnisonCount] = &unisonCount;
     paramToValue[pmUnisonSpread] = &unisonSpread;
     paramToValue[pmAmpAttack] = &ampAttack;
@@ -425,7 +426,7 @@ bool ClapSawDemo::unregisterTimer(clap_id id)
     return _host.timerSupportUnregister(id);
 }
 bool ClapSawDemo::registerPosixFd(int fd) {
-    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE);
+    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
 }
 bool ClapSawDemo::unregisterPosixFD(int fd)
 {
