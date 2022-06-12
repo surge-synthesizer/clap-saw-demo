@@ -96,6 +96,11 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
         return true;
 #endif
 
+#if IS_WINDOWS
+    if (strcmp(api, CLAP_WINDOW_API_WIN32) == 0)
+        return true;
+#endif
+
 #if IS_LINUX
     if (strcmp(api, CLAP_WINDOW_API_X11) == 0)
         return true;
@@ -110,6 +115,10 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
     {
 #if IS_MAC
         VSTGUI::init(CFBundleGetMainBundle());
+#endif
+#if IS_WINDOWS
+        CoInitialize (nullptr);
+        VSTGUI::init (GetModuleHandle (nullptr));
 #endif
 #if IS_LINUX
         VSTGUI::init(nullptr);
