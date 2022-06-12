@@ -20,12 +20,12 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     ClapSawDemo *plugin{nullptr};
     ClapRunLoop(ClapSawDemo *p) : plugin(p) {}
 
-    std::map<int, VSTGUI::X11::IEventHandler *> eventHandlers;
+    std::multimap<int, VSTGUI::X11::IEventHandler *> eventHandlers;
     bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(fd) << _D(handler) << std::endl;
         plugin->registerPosixFd(fd);
-        eventHandlers[fd] = handler;
+        eventHandlers.insert({fd,handler});
         return false;
     }
     bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override {

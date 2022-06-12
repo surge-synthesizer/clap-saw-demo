@@ -425,7 +425,7 @@ bool ClapSawDemo::unregisterTimer(clap_id id)
     return _host.timerSupportUnregister(id);
 }
 bool ClapSawDemo::registerPosixFd(int fd) {
-    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
+    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE);
 }
 bool ClapSawDemo::unregisterPosixFD(int fd)
 {
