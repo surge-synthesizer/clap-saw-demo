@@ -12,6 +12,8 @@
  */
 namespace sst::clap_saw_demo
 {
+float pival = 3.14159265358979323846; // I always forget what you need for M_PI to work on all paltforms
+
 void SawDemoVoice::recalcRates()
 {
     for (int i = 0; i < unison; ++i)
@@ -37,7 +39,7 @@ void SawDemoVoice::step()
             state = HOLD;
         }
     }
-    else if (state == RELEASE)
+    else if (state == RELEASING)
     {
         AR = releaseFrom * (1.0 - time / ampRelease);
         time += srInv;
@@ -97,8 +99,8 @@ void SawDemoVoice::start(int key)
             float dI = 1.0 * i / (unison - 1);
             unitShift[i] = 2 * dI - 1;
             phase[i] = dI;
-            panL[i] = std::cos(0.5 * M_PI * dI);
-            panR[i] = std::sin(0.5 * M_PI * dI);
+            panL[i] = std::cos(0.5 * pival * dI);
+            panR[i] = std::sin(0.5 * pival * dI);
 
             norm[i] = 1.0 / sqrt(unison);
         }
@@ -110,7 +112,7 @@ void SawDemoVoice::start(int key)
 
 void SawDemoVoice::release()
 {
-    state = RELEASE;
+    state = RELEASING;
     time = 0;
 
     if (time >= ampRelease)
@@ -120,7 +122,7 @@ void SawDemoVoice::release()
 void SawDemoVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
 {
     auto freq = 440.0 * pow(2.0, (key - 69) / 12.0);
-    auto w0 = 2.0 * M_PI * freq * srInv;
+    auto w0 = 2.0 * pival * freq * srInv;
     auto cw0 = std::cos(w0);
     auto sw0 = std::sin(w0);
     auto alp = sw0 / (2.0 * res);

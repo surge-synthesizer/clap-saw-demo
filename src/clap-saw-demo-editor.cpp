@@ -12,6 +12,10 @@
 #include <map>
 #endif
 
+#if IS_WIN
+#include <Windows.h>
+#endif
+
 namespace sst::clap_saw_demo
 {
 #if IS_LINUX
@@ -96,7 +100,7 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
         return true;
 #endif
 
-#if IS_WINDOWS
+#if IS_WIN
     if (strcmp(api, CLAP_WINDOW_API_WIN32) == 0)
         return true;
 #endif
@@ -116,8 +120,7 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 #if IS_MAC
         VSTGUI::init(CFBundleGetMainBundle());
 #endif
-#if IS_WINDOWS
-        CoInitialize (nullptr);
+#if IS_WIN
         VSTGUI::init (GetModuleHandle (nullptr));
 #endif
 #if IS_LINUX
@@ -130,7 +133,10 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 
     for (const auto &[k,v] : paramToValue)
     {
-        auto r = ToUI{.type = ToUI::PARAM_VALUE, .id = k, .value = *v};
+        auto r = ToUI();
+        r.type = ToUI::PARAM_VALUE;
+        r.id = k;
+        r.value = *v;
         toUiQ.try_enqueue(r);
     }
     return editor != nullptr;
@@ -148,10 +154,10 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     editor->getFrame()->open(window->cocoa);
 #endif
 #if IS_LINUX
-    editor->getFrame()->open((void*)(window->x11));
+    must have external linkage in order to be exported/imported
 #endif
-#if IS_WINDOWS
-    assert(false);
+#if IS_WIN
+    editor->getFrame()->open(window->win32);
 #endif
     editor->setupUI(window);
     return true;

@@ -235,7 +235,9 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
                 dataCopyForUI.updateCount ++;
                 dataCopyForUI.polyphony ++;
-                auto r = ToUI{.type = ToUI::MIDI_NOTE_ON, .id = (uint32_t)n};
+                auto r = ToUI();
+                r.type = ToUI::MIDI_NOTE_ON;
+                r.id = (uint32_t)n;
                 toUiQ.try_enqueue(r);
             }
             break;
@@ -252,7 +254,9 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                     }
                 }
 
-                auto r = ToUI{.type = ToUI::MIDI_NOTE_OFF, .id = (uint32_t)n};
+                auto r = ToUI();
+                r.type = ToUI::MIDI_NOTE_OFF;
+                r.id = (uint32_t)n;
                 toUiQ.try_enqueue(r);
             }
             break;
@@ -261,8 +265,11 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                 auto v = reinterpret_cast<const clap_event_param_value *>(evt);
 
                 *paramToValue[v->param_id] = v->value;
-                auto r =
-                    ToUI{.type = ToUI::PARAM_VALUE, .id = v->param_id, .value = (double)v->value};
+                auto r = ToUI();
+                r.type = ToUI::PARAM_VALUE;
+                r.id = v->param_id;
+                r.value = (double)v->value;
+
                 toUiQ.try_enqueue(r);
             }
             case CLAP_EVENT_PARAM_MOD:

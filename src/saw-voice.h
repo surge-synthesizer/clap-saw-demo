@@ -26,13 +26,13 @@ struct SawDemoVoice
     float uniSpread;
     int key;
     int noteid;
-    enum
+    enum AEGMode
     {
         OFF,
         ATTACK,
         HOLD,
         NEWLY_OFF,
-        RELEASE
+        RELEASING
     } state{OFF};
 
     enum
