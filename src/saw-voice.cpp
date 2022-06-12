@@ -6,6 +6,7 @@
 
 #include "saw-voice.h"
 #include <cmath>
+#include <algorithm>
 
 /*
  * Nothing here is really clap related at all. It just makes some voices.
@@ -122,6 +123,7 @@ void SawDemoVoice::release()
 void SawDemoVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
 {
     auto freq = 440.0 * pow(2.0, (key - 69) / 12.0);
+    res = std::clamp(res, 0.01f, 0.99f);
     auto w0 = 2.0 * pival * freq * srInv;
     auto cw0 = std::cos(w0);
     auto sw0 = std::sin(w0);
