@@ -133,7 +133,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         break;
     case 4:
         info->id = pmAmpIsGate;
-        strncpy(info->name, "Amplitude Plain Gate", CLAP_NAME_SIZE);
+        strncpy(info->name, "Deactivate Amp Envelope", CLAP_NAME_SIZE);
         strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
         info->min_value = 0;
         info->max_value = 1;
@@ -229,12 +229,21 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                         v.ampGate = ampIsGate > 0.5;
                         v.start(n);
                         v.noteid = nevt->note_id;
+                        v.preFilterVCA = preFilterVCA;
+
+                        // reset all the modulations
+                        v.cutoffMod = 0;
+                        v.resMod = 0;
+                        v.preFilterVCAMod = 0;
+                        v.spreadMod = 0;
+                        v.neVolumeAdj = 0;
+                        v.pitchMod = 0;
                         break;
                     }
                 }
 
-                dataCopyForUI.updateCount ++;
-                dataCopyForUI.polyphony ++;
+                dataCopyForUI.updateCount++;
+                dataCopyForUI.polyphony++;
                 auto r = ToUI();
                 r.type = ToUI::MIDI_NOTE_ON;
                 r.id = (uint32_t)n;
@@ -290,17 +299,50 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                             case paramIds::pmCutoff:
                             {
                                 v.cutoffMod = pevt->amount;
+                                v.recalcRates();
                                 break;
+                            }
+                            case paramIds::pmUnisonSpread:
+                            {
+                                v.spreadMod = pevt->amount;
+                                break;
+                            }
+                            case paramIds::pmResonance:
+                            {
+                                v.resMod = pevt->amount;
+                                v.recalcRates();
+                                break;
+                            }
+                            case paramIds::pmPreFilterVCA:
+                            {
+                                v.preFilterVCAMod = pevt->amount;
                             }
                             }
                             break;
                         }
                     }
                 }
-                else
+            }
+            break;
+            case CLAP_EVENT_NOTE_EXPRESSION:
+            {
+                auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
+                for (auto &v : voices)
                 {
-                    for (auto v : voices)
+                    // Note expressions work on key not note id
+                    if (v.key == pevt->key)
                     {
+                        switch (pevt->expression_id)
+                        {
+                        case CLAP_NOTE_EXPRESSION_VOLUME:
+                            // I can mod the VCA
+                            v.neVolumeAdj = pevt->value - 1.0;
+                            break;
+                        case CLAP_NOTE_EXPRESSION_TUNING:
+                            v.pitchMod = pevt->value;
+                            v.recalcRates();
+                            break;
+                        }
                     }
                 }
             }
@@ -415,9 +457,8 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
             ov->try_push(ov, &(evt.header));
 
-
-            dataCopyForUI.updateCount ++;
-            dataCopyForUI.polyphony --;
+            dataCopyForUI.updateCount++;
+            dataCopyForUI.polyphony--;
         }
     }
     return CLAP_PROCESS_CONTINUE;
@@ -428,19 +469,13 @@ bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
     return _host.timerSupportRegister(interv, id);
 }
-bool ClapSawDemo::unregisterTimer(clap_id id)
+bool ClapSawDemo::unregisterTimer(clap_id id) { return _host.timerSupportUnregister(id); }
+bool ClapSawDemo::registerPosixFd(int fd)
 {
-    return _host.timerSupportUnregister(id);
+    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE |
+                                                CLAP_POSIX_FD_ERROR);
 }
-bool ClapSawDemo::registerPosixFd(int fd) {
-    return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE | CLAP_POSIX_FD_ERROR);
-}
-bool ClapSawDemo::unregisterPosixFD(int fd)
-{
-    return _host.posixFdSupportUnregister(fd);
-}
+bool ClapSawDemo::unregisterPosixFD(int fd) { return _host.posixFdSupportUnregister(fd); }
 #endif
-
-
 
 } // namespace sst::clap_saw_demo

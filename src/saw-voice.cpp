@@ -17,10 +17,13 @@ float pival = 3.14159265358979323846; // I always forget what you need for M_PI 
 
 void SawDemoVoice::recalcRates()
 {
+    baseFreq = 440.0 * pow(2.0, ((key + pitchMod) - 69.0) / 12.0);
+
     for (int i = 0; i < unison; ++i)
     {
         dPhase[i] = (baseFreq * pow(2.0, uniSpread * unitShift[i] / 100.0 / 12.0)) / sampleRate;
     }
+
     srInv = 1.0 / sampleRate;
 }
 
@@ -60,6 +63,7 @@ void SawDemoVoice::step()
     if (ampGate)
         AR = 1.0;
 
+    AR *= (preFilterVCA + preFilterVCAMod + neVolumeAdj);
     L = 0;
     R = 0;
     for (int i = 0; i < unison; ++i)
@@ -88,8 +92,8 @@ void SawDemoVoice::start(int key)
     if (unison == 1)
     {
         unitShift[0] = 0;
-        panL[0] = 1.0;
-        panR[0] = 1.0;
+        panL[0] = 1;
+        panR[0] = 1;
         phase[0] = 0.0;
         norm[0] = 1.0;
     }

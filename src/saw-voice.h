@@ -69,8 +69,11 @@ struct SawDemoVoice
     float cutoff{69.0}, res{0.7};
     float ampAttack{0.01}, ampRelease{0.1};
     bool ampGate{false};
+    float preFilterVCA{1.0};
 
-    float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0};
+    float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0}, preFilterVCAMod{0.0};
+
+    float pitchMod{0.f}, neVolumeAdj{0.f};
 };
 } // namespace sst::clap_saw_demo
 #endif
