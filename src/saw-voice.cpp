@@ -158,6 +158,8 @@ void SawDemoVoice::release()
 void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 {
     auto co = 440.0 * pow(2.0, (key-69.0)/12);
+    co = std::clamp(co, 10.0, 12000.0); // just to be safe
+    res = std::clamp(res, 0.01f, 0.999f);
     g = std::tan(pival * co * srInv);
     k = 2.0 - 2.0 * res;
     gk = g + k;
