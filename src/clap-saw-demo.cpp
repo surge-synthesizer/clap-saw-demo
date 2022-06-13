@@ -362,7 +362,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                 v.start(n);
                 v.noteid = nevt->note_id;
                 v.preFilterVCA = preFilterVCA;
-                v.filterMode = (int)std::round(filterMode); // I could be less lazy obvs
+                v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
 
                 // reset all the modulations
                 v.cutoffMod = 0;
@@ -503,7 +503,7 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
 {
     auto pid = (paramIds)paramId;
     std::string sValue{"ERROR"};
-    auto n2s = [](double n)
+    auto n2s = [](auto n)
     {
         std::ostringstream  oss;
         oss << std::setprecision(6) << n;
@@ -520,7 +520,7 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
         sValue = n2s(value) + " s";
         break;
     case pmUnisonCount:
-        sValue = n2s((int)round(value)) + " voices";
+        sValue = n2s(static_cast<int>(value)) + " voices";
         break;
     case pmUnisonSpread:
         sValue = n2s(value) + " cents";
@@ -536,7 +536,7 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
     }
     case pmFilterMode:
     {
-        auto fm = (SawDemoVoice::StereoSimperSVF::Mode)round(value);
+        auto fm = (SawDemoVoice::StereoSimperSVF::Mode)static_cast<int>(value);
         switch(fm)
         {
         case SawDemoVoice::StereoSimperSVF::LP:
