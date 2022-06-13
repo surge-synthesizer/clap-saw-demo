@@ -202,154 +202,8 @@ bool ClapSawDemo::notePortsInfo(uint32_t index, bool isInput,
  */
 clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 {
-    auto ev = process->in_events;
-    auto sz = ev->size(ev);
-
-    if (sz != 0)
-    {
-        for (auto i = 0; i < sz; ++i)
-        {
-            auto evt = ev->get(ev, i);
-
-            switch (evt->type)
-            {
-                // case CLAP_EVENT_MIDI:
-            case CLAP_EVENT_NOTE_ON:
-            {
-                auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-                auto n = nevt->key;
-
-                for (auto &v : voices)
-                {
-                    if (v.state == SawDemoVoice::OFF)
-                    {
-                        v.unison = std::max(1, std::min(7, (int)unisonCount));
-                        v.ampAttack = ampAttack;
-                        v.ampRelease = ampRelease;
-                        v.ampGate = ampIsGate > 0.5;
-                        v.start(n);
-                        v.noteid = nevt->note_id;
-                        v.preFilterVCA = preFilterVCA;
-
-                        // reset all the modulations
-                        v.cutoffMod = 0;
-                        v.resMod = 0;
-                        v.preFilterVCAMod = 0;
-                        v.spreadMod = 0;
-                        v.neVolumeAdj = 0;
-                        v.pitchMod = 0;
-                        break;
-                    }
-                }
-
-                dataCopyForUI.updateCount++;
-                dataCopyForUI.polyphony++;
-                auto r = ToUI();
-                r.type = ToUI::MIDI_NOTE_ON;
-                r.id = (uint32_t)n;
-                toUiQ.try_enqueue(r);
-            }
-            break;
-            case CLAP_EVENT_NOTE_OFF:
-            {
-                auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-                auto n = nevt->key;
-
-                for (auto &v : voices)
-                {
-                    if (v.state != SawDemoVoice::OFF && v.key == n)
-                    {
-                        v.release();
-                    }
-                }
-
-                auto r = ToUI();
-                r.type = ToUI::MIDI_NOTE_OFF;
-                r.id = (uint32_t)n;
-                toUiQ.try_enqueue(r);
-            }
-            break;
-            case CLAP_EVENT_PARAM_VALUE:
-            {
-                auto v = reinterpret_cast<const clap_event_param_value *>(evt);
-
-                *paramToValue[v->param_id] = v->value;
-                auto r = ToUI();
-                r.type = ToUI::PARAM_VALUE;
-                r.id = v->param_id;
-                r.value = (double)v->value;
-
-                toUiQ.try_enqueue(r);
-            }
-            case CLAP_EVENT_PARAM_MOD:
-            {
-                auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
-                auto pd = pevt->param_id;
-                if (pevt->note_id >= 0)
-                {
-                    for (auto &v : voices)
-                    {
-                        bool found = false;
-                        if (v.noteid == pevt->note_id)
-                            found = true;
-                        if (found)
-                        {
-                            switch (pd)
-                            {
-                            case paramIds::pmCutoff:
-                            {
-                                v.cutoffMod = pevt->amount;
-                                v.recalcRates();
-                                break;
-                            }
-                            case paramIds::pmUnisonSpread:
-                            {
-                                v.spreadMod = pevt->amount;
-                                break;
-                            }
-                            case paramIds::pmResonance:
-                            {
-                                v.resMod = pevt->amount;
-                                v.recalcRates();
-                                break;
-                            }
-                            case paramIds::pmPreFilterVCA:
-                            {
-                                v.preFilterVCAMod = pevt->amount;
-                            }
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-            case CLAP_EVENT_NOTE_EXPRESSION:
-            {
-                auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
-                for (auto &v : voices)
-                {
-                    // Note expressions work on key not note id
-                    if (v.key == pevt->key)
-                    {
-                        switch (pevt->expression_id)
-                        {
-                        case CLAP_NOTE_EXPRESSION_VOLUME:
-                            // I can mod the VCA
-                            v.neVolumeAdj = pevt->value - 1.0;
-                            break;
-                        case CLAP_NOTE_EXPRESSION_TUNING:
-                            v.pitchMod = pevt->value;
-                            v.recalcRates();
-                            break;
-                        }
-                    }
-                }
-            }
-            break;
-            }
-        }
-    }
+    if (process->audio_outputs_count <= 0)
+        return CLAP_PROCESS_CONTINUE;
 
     // Now handle any messages from the UI
     ClapSawDemo::FromUI r;
@@ -394,25 +248,34 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
     }
 
-    for (auto &v : voices)
-    {
-        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
-        {
-            v.uniSpread = unisonSpread;
-            v.cutoff = cutoff;
-            v.res = resonance;
-            v.recalcRates();
-        }
-    }
-
-    if (process->audio_outputs_count <= 0)
-        return CLAP_PROCESS_CONTINUE;
+    pushParamsToVoices();
 
     float **out = process->audio_outputs[0].data32;
     auto chans = process->audio_outputs->channel_count;
 
+    auto ev = process->in_events;
+    auto sz = ev->size(ev);
+
+    const clap_event_header_t  *nextEvent{nullptr};
+    uint32_t nextEventIndex{0};
+    if (sz != 0)
+    {
+        nextEvent = ev->get(ev, nextEventIndex);
+    }
+
     for (int i = 0; i < process->frames_count; ++i)
     {
+        // Do I have an event to process
+        while(nextEvent && nextEvent->time == i)
+        {
+            handleInboundEvent(nextEvent);
+            nextEventIndex++;
+            if (nextEventIndex >= sz)
+                nextEvent = nullptr;
+            else
+                nextEvent = ev->get(ev, nextEventIndex);
+        }
+
         for (int ch = 0; ch < chans; ++ch)
         {
             out[ch][i] = 0.f;
@@ -462,6 +325,162 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
     }
     return CLAP_PROCESS_CONTINUE;
+}
+
+void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
+{
+    switch (evt->type)
+    {
+        // case CLAP_EVENT_MIDI:
+    case CLAP_EVENT_NOTE_ON:
+    {
+        auto nevt = reinterpret_cast<const clap_event_note *>(evt);
+        auto n = nevt->key;
+
+        for (auto &v : voices)
+        {
+            if (v.state == SawDemoVoice::OFF)
+            {
+                v.unison = std::max(1, std::min(7, (int)unisonCount));
+                v.ampAttack = ampAttack;
+                v.ampRelease = ampRelease;
+                v.ampGate = ampIsGate > 0.5;
+                v.start(n);
+                v.noteid = nevt->note_id;
+                v.preFilterVCA = preFilterVCA;
+
+                // reset all the modulations
+                v.cutoffMod = 0;
+                v.resMod = 0;
+                v.preFilterVCAMod = 0;
+                v.spreadMod = 0;
+                v.neVolumeAdj = 0;
+                v.pitchMod = 0;
+                break;
+            }
+        }
+
+        dataCopyForUI.updateCount++;
+        dataCopyForUI.polyphony++;
+        auto r = ToUI();
+        r.type = ToUI::MIDI_NOTE_ON;
+        r.id = (uint32_t)n;
+        toUiQ.try_enqueue(r);
+    }
+    break;
+    case CLAP_EVENT_NOTE_OFF:
+    {
+        auto nevt = reinterpret_cast<const clap_event_note *>(evt);
+        auto n = nevt->key;
+
+        for (auto &v : voices)
+        {
+            if (v.state != SawDemoVoice::OFF && v.key == n)
+            {
+                v.release();
+            }
+        }
+
+        auto r = ToUI();
+        r.type = ToUI::MIDI_NOTE_OFF;
+        r.id = (uint32_t)n;
+        toUiQ.try_enqueue(r);
+    }
+    break;
+    case CLAP_EVENT_PARAM_VALUE:
+    {
+        auto v = reinterpret_cast<const clap_event_param_value *>(evt);
+
+        *paramToValue[v->param_id] = v->value;
+        auto r = ToUI();
+        r.type = ToUI::PARAM_VALUE;
+        r.id = v->param_id;
+        r.value = (double)v->value;
+
+        toUiQ.try_enqueue(r);
+        pushParamsToVoices();
+    }
+    case CLAP_EVENT_PARAM_MOD:
+    {
+        auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
+        auto pd = pevt->param_id;
+        if (pevt->note_id >= 0)
+        {
+            for (auto &v : voices)
+            {
+                bool found = false;
+                if (v.noteid == pevt->note_id)
+                    found = true;
+                if (found)
+                {
+                    switch (pd)
+                    {
+                    case paramIds::pmCutoff:
+                    {
+                        v.cutoffMod = pevt->amount;
+                        v.recalcRates();
+                        break;
+                    }
+                    case paramIds::pmUnisonSpread:
+                    {
+                        v.spreadMod = pevt->amount;
+                        break;
+                    }
+                    case paramIds::pmResonance:
+                    {
+                        v.resMod = pevt->amount;
+                        v.recalcRates();
+                        break;
+                    }
+                    case paramIds::pmPreFilterVCA:
+                    {
+                        v.preFilterVCAMod = pevt->amount;
+                    }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+    break;
+    case CLAP_EVENT_NOTE_EXPRESSION:
+    {
+        auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
+        for (auto &v : voices)
+        {
+            // Note expressions work on key not note id
+            if (v.key == pevt->key)
+            {
+                switch (pevt->expression_id)
+                {
+                case CLAP_NOTE_EXPRESSION_VOLUME:
+                    // I can mod the VCA
+                    v.neVolumeAdj = pevt->value - 1.0;
+                    break;
+                case CLAP_NOTE_EXPRESSION_TUNING:
+                    v.pitchMod = pevt->value;
+                    v.recalcRates();
+                    break;
+                }
+            }
+        }
+    }
+    break;
+    }
+}
+
+void ClapSawDemo::pushParamsToVoices()
+{
+    for (auto &v : voices)
+    {
+        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
+        {
+            v.uniSpread = unisonSpread;
+            v.cutoff = cutoff;
+            v.res = resonance;
+            v.recalcRates();
+        }
+    }
 }
 
 #if IS_LINUX

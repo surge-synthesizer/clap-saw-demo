@@ -97,7 +97,9 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      * sound of course by summing across active voices
      */
     clap_process_status process(const clap_process *process) noexcept override;
-
+    void handleInboundEvent(const clap_event_header_t *evt);
+    void pushParamsToVoices();
+    
     /*
      * Parameter implementation is obvious and straight forward
      */
