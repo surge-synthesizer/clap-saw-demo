@@ -168,7 +168,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 #endif
 
   public:
-    static constexpr uint32_t GUI_DEFAULT_W = 500, GUI_DEFAULT_H = 300;
+    static constexpr uint32_t GUI_DEFAULT_W = 400, GUI_DEFAULT_H = 600;
 
   public:
     /*

@@ -48,14 +48,30 @@ void SawDemoVoice::step()
         {
             state = HOLD;
         }
+
+        if (ampGate)
+            AR = 1.0;
     }
     else if (state == RELEASING)
     {
-        AR = releaseFrom * (1.0 - time / ampRelease);
+        auto tn = time / ampRelease;
+        auto tf = (1.0 - tn);
+        AR = releaseFrom * tf;
         time += srInv;
         if (time >= ampRelease)
         {
             state = NEWLY_OFF;
+        }
+
+        if (ampGate)
+        {
+            AR = 1.0;
+            const auto lastSeg = 0.02;
+            if (tn > (1.0-lastSeg))
+            {
+                // Avoid a click with a last 2% fade
+                AR = 1 - (tn - (1.0-lastSeg))/lastSeg;
+            }
         }
     }
     else if (state == HOLD)
@@ -63,12 +79,11 @@ void SawDemoVoice::step()
         AR = 1.0;
         time = 0;
         releaseFrom = 1.0;
+
+        if (ampGate)
+            AR = 1.0;
     }
 
-    // Still need to calculate the state transitions but don't need
-    // the AR. Hope the VCA is modulated basically!
-    if (ampGate)
-        AR = 1.0;
 
     AR *= (preFilterVCA + preFilterVCAMod + neVolumeAdj);
     L = 0;
@@ -158,7 +173,7 @@ void SawDemoVoice::release()
 void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 {
     auto co = 440.0 * pow(2.0, (key-69.0)/12);
-    co = std::clamp(co, 10.0, 12000.0); // just to be safe
+    co = std::clamp(co, 10.0, 15000.0); // just to be safe/lazy
     res = std::clamp(res, 0.01f, 0.999f);
     g = std::tan(pival * co * srInv);
     k = 2.0 - 2.0 * res;

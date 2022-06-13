@@ -41,6 +41,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
 
   private:
     uint32_t lastDataUpdate{0};
+    VSTGUI::CView *backgroundRender;
     // These are all weak references owned by the frame
     VSTGUI::CTextLabel *topLabel{nullptr}, *bottomLabel{nullptr}, *statusLabel{nullptr};
 

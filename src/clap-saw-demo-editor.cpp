@@ -200,6 +200,25 @@ bool ClapSawDemo::guiAdjustSize(uint32_t *width, uint32_t *height) noexcept
     return true;
 }
 
+// Just a little throwaway component to draw a nicer background
+struct ClapSawDemoBackground : public VSTGUI::CView
+{
+    explicit ClapSawDemoBackground(const VSTGUI::CRect &s) : VSTGUI::CView(s) {}
+
+    void draw(VSTGUI::CDrawContext *dc) override {
+        auto r = VSTGUI::CRect(0,0,getWidth(), getHeight());
+        dc->setFillColor(VSTGUI::CColor(0x20, 0x20, 0x50));
+        dc->drawRect(r, VSTGUI::kDrawFilled);
+
+        auto t = VSTGUI::CRect(0,0,getWidth(), 60);
+        dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
+        dc->drawRect(t, VSTGUI::kDrawFilled);
+
+        auto b = VSTGUI::CRect(VSTGUI::CPoint(0,getHeight()-20),VSTGUI::CPoint(getWidth(), 20));
+        dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
+        dc->drawRect(b, VSTGUI::kDrawFilled);
+    }
+};
 
 ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
                                      ClapSawDemo::UIToSynth_Queue_t &o,
@@ -215,33 +234,27 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
 {
     _DBGMARK;
 
+    backgroundRender = new ClapSawDemoBackground(VSTGUI::CRect(0,0,getFrame()->getWidth(), getFrame()->getHeight()));
+    frame->addView(backgroundRender);
+    
     auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), 40), "Clap Saw Synth Demo");
-    l->setTransparency(false);
-    l->setBackColor(VSTGUI::CColor(0x50, 0x20, 0x20));
+    l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontVeryBig);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
-    l->setFrameWidth(1);
-    l->setFrameColor(VSTGUI::CColor(0xFF, 0xFF, 0xFF));
     topLabel = l;
     frame->addView(topLabel);
 
     l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0,40), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "status");
-    l->setTransparency(false);
-    l->setBackColor(VSTGUI::CColor(0x50, 0x20, 0x20));
-    l->setFont(VSTGUI::kNormalFontSmaller);
+    l->setTransparency(true);
+    l->setFont(VSTGUI::kNormalFont);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
-    l->setFrameWidth(1);
-    l->setFrameColor(VSTGUI::CColor(0xFF, 0xFF, 0xFF));
     statusLabel = l;
     frame->addView(statusLabel);
 
     l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0,getFrame()->getHeight()-20), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "https://some-url-soon");
-    l->setTransparency(false);
-    l->setBackColor(VSTGUI::CColor(0x50, 0x20, 0x20));
+    l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontSmaller);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
-    l->setFrameWidth(1);
-    l->setFrameColor(VSTGUI::CColor(0xFF, 0xFF, 0xFF));
     bottomLabel = l;
     frame->addView(bottomLabel);
 
@@ -288,6 +301,9 @@ void ClapSawDemoEditor::resize()
 {
     auto w = getFrame()->getWidth();
     auto h = getFrame()->getHeight();
+    backgroundRender->setViewSize(VSTGUI::CRect(0,0,w,h));
+    backgroundRender->invalid();
+
     topLabel->setViewSize(VSTGUI::CRect(0,0,w,40));
     topLabel->invalid();
 

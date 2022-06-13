@@ -130,7 +130,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         strncpy(info->name, "Amplitude Release (s)", CLAP_NAME_SIZE);
         strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
         info->min_value = 0;
-        info->max_value = 1;
+        info->max_value = 10;
         info->default_value = 0.2;
         break;
     case 4:
@@ -419,41 +419,63 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     {
         auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
         auto pd = pevt->param_id;
+        auto applyToVoice = [&pevt](auto &v)
+        {
+            auto pd = pevt->param_id;
+            switch (pd)
+            {
+            case paramIds::pmCutoff:
+            {
+                v.cutoffMod = pevt->amount;
+                v.recalcFilter();
+                break;
+            }
+            case paramIds::pmUnisonSpread:
+            {
+                v.spreadMod = pevt->amount;
+                break;
+            }
+            case paramIds::pmResonance:
+            {
+                v.resMod = pevt->amount;
+                v.recalcFilter();
+                break;
+            }
+            case paramIds::pmPreFilterVCA:
+            {
+                v.preFilterVCAMod = pevt->amount;
+            }
+            }
+        };
+
         if (pevt->note_id >= 0)
         {
+            // poly by noteid
             for (auto &v : voices)
             {
-                bool found = false;
                 if (v.noteid == pevt->note_id)
-                    found = true;
-                if (found)
                 {
-                    switch (pd)
-                    {
-                    case paramIds::pmCutoff:
-                    {
-                        v.cutoffMod = pevt->amount;
-                        v.recalcFilter();
-                        break;
-                    }
-                    case paramIds::pmUnisonSpread:
-                    {
-                        v.spreadMod = pevt->amount;
-                        break;
-                    }
-                    case paramIds::pmResonance:
-                    {
-                        v.resMod = pevt->amount;
-                        v.recalcFilter();
-                        break;
-                    }
-                    case paramIds::pmPreFilterVCA:
-                    {
-                        v.preFilterVCAMod = pevt->amount;
-                    }
-                    }
-                    break;
+                    applyToVoice(v);
                 }
+            }
+        }
+        else if (pevt->key >= 0)
+        {
+            // poly by PCK
+            for (auto &v : voices)
+            {
+                if (v.key == pevt->key)
+                {
+                    applyToVoice(v);
+                }
+            }
+        }
+        else
+        {
+            // mono
+            for (auto &v : voices)
+            {
+                applyToVoice(v);
             }
         }
     }
