@@ -7,9 +7,7 @@
 #ifndef CLAP_SAW_DEMO_H
 #define CLAP_SAW_DEMO_H
 #include <iostream>
-#define _DBGCOUT std::cout << "[clap-saw-demo] " << __FILE__ << ":" << __LINE__ << " (" << __func__ << ") :"
-#define _DBGMARK std::cout << "[clap-saw-demo] " << __FILE__ << ":" << __LINE__ << " (" << __func__ << ")" << std::endl;
-#define _D(x) " [" << #x << "=" << x << "] "
+#include "debug-helpers.h"
 
 /*
  * This header file is the clap::Plugin from the plugin-glue helpers which gives
@@ -99,7 +97,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     clap_process_status process(const clap_process *process) noexcept override;
     void handleInboundEvent(const clap_event_header_t *evt);
     void pushParamsToVoices();
-    
+
     /*
      * Parameter implementation is obvious and straight forward
      */

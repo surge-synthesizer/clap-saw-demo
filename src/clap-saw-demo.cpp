@@ -324,6 +324,9 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
             dataCopyForUI.polyphony--;
         }
     }
+
+    // We should have gotten all the events
+    assert(!nextEvent);
     return CLAP_PROCESS_CONTINUE;
 }
 
@@ -418,7 +421,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                     case paramIds::pmCutoff:
                     {
                         v.cutoffMod = pevt->amount;
-                        v.recalcRates();
+                        v.recalcFilter();
                         break;
                     }
                     case paramIds::pmUnisonSpread:
@@ -429,7 +432,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                     case paramIds::pmResonance:
                     {
                         v.resMod = pevt->amount;
-                        v.recalcRates();
+                        v.recalcFilter();
                         break;
                     }
                     case paramIds::pmPreFilterVCA:
@@ -459,7 +462,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                     break;
                 case CLAP_NOTE_EXPRESSION_TUNING:
                     v.pitchMod = pevt->value;
-                    v.recalcRates();
+                    v.recalcPitch();
                     break;
                 }
             }
@@ -478,7 +481,7 @@ void ClapSawDemo::pushParamsToVoices()
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
             v.res = resonance;
-            v.recalcRates();
+            v.recalcFilter();
         }
     }
 }

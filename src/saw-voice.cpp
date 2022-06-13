@@ -13,24 +13,29 @@
  */
 namespace sst::clap_saw_demo
 {
-float pival = 3.14159265358979323846; // I always forget what you need for M_PI to work on all paltforms
+float pival =
+    3.14159265358979323846; // I always forget what you need for M_PI to work on all paltforms
 
-void SawDemoVoice::recalcRates()
+void SawDemoVoice::recalcPitch()
 {
     baseFreq = 440.0 * pow(2.0, ((key + pitchMod) - 69.0) / 12.0);
 
     for (int i = 0; i < unison; ++i)
     {
         dPhase[i] = (baseFreq * pow(2.0, uniSpread * unitShift[i] / 100.0 / 12.0)) / sampleRate;
+        dPhaseInv[i] = 1.0 / dPhase[i];
     }
+}
 
-    srInv = 1.0 / sampleRate;
+void SawDemoVoice::recalcFilter()
+{
+    auto co = cutoff + cutoffMod;
+    auto rm = res + resMod;
+    filter.setCoeff(co, rm, srInv);
 }
 
 void SawDemoVoice::step()
 {
-    auto co = cutoff + cutoffMod;
-    filter.setCoeff(co, res, srInv);
     float AR = 1.0;
 
     if (state == ATTACK)
@@ -59,17 +64,40 @@ void SawDemoVoice::step()
         releaseFrom = 1.0;
     }
 
-
+    // Still need to calculate the state transitions but don't need
+    // the AR. Hope the VCA is modulated basically!
     if (ampGate)
         AR = 1.0;
 
     AR *= (preFilterVCA + preFilterVCAMod + neVolumeAdj);
     L = 0;
     R = 0;
+
     for (int i = 0; i < unison; ++i)
     {
-        L += 0.2 * norm[i] * AR * panL[i] * (phase[i] * 2 - 1);
-        R += 0.2 * norm[i] * AR * panR[i] * (phase[i] * 2 - 1);
+        /*
+         * Use a cubic integrated saw and second deriv it at
+         * each point. This is basically the math I worked
+         * out for the surge modern oscillator. The cubic function
+         * which gives a clean saw is phase^3 / 6 - phase / 6.
+         * Evaluate it at 3 points and then differentiate it like
+         * we do in Surge Modern. The waveform is the same both
+         * channels.
+         */
+        double phaseSteps[3];
+        for (int q=-2; q <= 0; ++q)
+        {
+            double ph = phase[i] + q * dPhase[i];
+            // Our calculation assumes phase in -1,1 and this phase is
+            // in 0 1 so
+            ph = ph * 2 - 1;
+            phaseSteps[q + 2] = (ph * ph - 1) * ph / 6.0;
+        }
+        // the 0.25 here is because of the phase rescaling again
+        double saw = (phaseSteps[0] + phaseSteps[2] - 2 * phaseSteps[1]) * 0.25 * dPhaseInv[i] * dPhaseInv[i];
+
+        L += 0.2 * norm[i] * AR * panL[i] * saw;
+        R += 0.2 * norm[i] * AR * panR[i] * saw;
 
         phase[i] += dPhase[i];
         if (phase[i] > 1)
@@ -81,6 +109,8 @@ void SawDemoVoice::step()
 
 void SawDemoVoice::start(int key)
 {
+    srInv = 1.0 / sampleRate;
+
     filter.init();
     this->key = key;
     baseFreq = 440.0 * pow(2.0, (key - 69.0) / 12.0);
@@ -111,8 +141,8 @@ void SawDemoVoice::start(int key)
         }
     }
 
-    recalcRates();
-    filter.setCoeff(cutoff, res, srInv);
+    recalcPitch();
+    recalcFilter();
 }
 
 void SawDemoVoice::release()

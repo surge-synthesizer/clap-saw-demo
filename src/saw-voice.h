@@ -8,6 +8,7 @@
 #define CLAP_SAW_DEMO_VOICE_H
 
 #include <array>
+#include "debug-helpers.h"
 
 /*
  * This is a simple voice implementation. You almost definitely don't want to spend
@@ -45,7 +46,8 @@ struct SawDemoVoice
     void step();
     void start(int key);
     void release();
-    void recalcRates();
+    void recalcPitch();
+    void recalcFilter();
 
     struct StereoBiQuadLPF
     {
@@ -57,10 +59,10 @@ struct SawDemoVoice
     } filter;
 
     std::array<float, max_uni> panL, panR, unitShift, norm;
-    std::array<float, max_uni> phase, dPhase;
+    std::array<double, max_uni> phase, dPhase, dPhaseInv;
 
-    float baseFreq{440.0};
-    float srInv{1.0 / 44100.0};
+    double baseFreq{440.0};
+    double srInv{1.0 / 44100.0};
 
     float time{0}, filterTime{0};
     float releaseFrom{1.0};
