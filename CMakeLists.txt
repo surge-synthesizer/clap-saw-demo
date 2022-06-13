@@ -28,7 +28,7 @@ add_library(${PROJECT_NAME} MODULE
         src/clap-saw-demo.cpp
         src/clap-saw-demo-editor.cpp
         src/saw-voice.cpp
-        src/clap-saw-demo-pluginentry.cpp)
+        src/clap-saw-demo-pluginentry.cpp src/linux-vstgui-adapter.cpp src/linux-vstgui-adapter.h)
 target_link_libraries(${PROJECT_NAME} vstgui clap-core clap-helpers readerwriterqueue)
 
 # VSTGUI doesn't include the include paths and compile definitions in the library
@@ -67,6 +67,7 @@ if(APPLE)
             )
 elseif(UNIX)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IS_LINUX=1)
+    target_sources(${PROJECT_NAME} PRIVATE src/linux-vstgui-adapter.cpp)
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")
 else()
     target_compile_definitions(${PROJECT_NAME} PRIVATE IS_WIN=1)
