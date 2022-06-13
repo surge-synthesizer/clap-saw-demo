@@ -2,11 +2,10 @@
 
 BP Todos before Tuesday EOD
 
-- Strings for the Param Displays
 - UI basics done
+- state save and restore
 - Document code carefully
 - Write this README
-- state save and restore
 - move to surge-synthesizer/clap-saw-demo
 - Let folks know
 

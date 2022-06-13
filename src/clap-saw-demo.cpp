@@ -14,6 +14,7 @@
 #include <clap/helpers/plugin.hxx>
 #include <clap/helpers/host-proxy.hh>
 #include <clap/helpers/host-proxy.hxx>
+#include <iomanip>
 
 namespace sst::clap_saw_demo
 {
@@ -495,6 +496,75 @@ void ClapSawDemo::pushParamsToVoices()
             v.recalcFilter();
         }
     }
+}
+
+bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display,
+                                    uint32_t size) noexcept
+{
+    auto pid = (paramIds)paramId;
+    std::string sValue{"ERROR"};
+    auto n2s = [](double n)
+    {
+        std::ostringstream  oss;
+        oss << std::setprecision(6) << n;
+        return oss.str();
+    };
+    switch(pid)
+    {
+    case pmResonance:
+    case pmPreFilterVCA:
+        sValue = n2s(value);
+        break;
+    case pmAmpRelease:
+    case pmAmpAttack:
+        sValue = n2s(value) + " s";
+        break;
+    case pmUnisonCount:
+        sValue = n2s((int)round(value)) + " voices";
+        break;
+    case pmUnisonSpread:
+        sValue = n2s(value) + " cents";
+        break;
+    case pmAmpIsGate:
+        sValue = value > 0.5 ? "AEG Bypassed" : "AEG On";
+        break;
+    case pmCutoff:
+    {
+        auto co = 440 * pow(2.0, (value - 69)/12);
+        sValue = n2s(co) + " Hz";
+        break;
+    }
+    case pmFilterMode:
+    {
+        auto fm = (SawDemoVoice::StereoSimperSVF::Mode)round(value);
+        switch(fm)
+        {
+        case SawDemoVoice::StereoSimperSVF::LP:
+            sValue = "LowPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::BP:
+            sValue = "BandPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::HP:
+            sValue = "HighPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::NOTCH:
+            sValue = "Notch";
+            break;
+        case SawDemoVoice::StereoSimperSVF::PEAK:
+            sValue = "Peak";
+            break;
+        case SawDemoVoice::StereoSimperSVF::ALL:
+            sValue = "AllPass";
+            break;
+        }
+        break;
+    }
+
+    }
+
+    strncpy(display, sValue.c_str(), CLAP_NAME_SIZE);
+    return true;
 }
 
 #if IS_LINUX

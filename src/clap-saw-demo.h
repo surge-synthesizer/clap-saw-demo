@@ -107,6 +107,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     uint32_t paramsCount() const noexcept override;
     bool paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept override;
     bool paramsValue(clap_id paramId, double *value) noexcept override;
+    bool paramsValueToText(clap_id paramId, double value, char *display,
+                           uint32_t size) noexcept override;
 
     bool implementsState() const noexcept override { return true; }
     bool stateSave(const clap_ostream *strea) noexcept override { return true; }
