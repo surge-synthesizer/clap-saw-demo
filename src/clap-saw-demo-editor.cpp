@@ -5,6 +5,7 @@
 #include "clap-saw-demo-editor.h"
 #include "clap-saw-demo.h"
 #include <vstgui/lib/vstguiinit.h>
+#include "vstgui/lib/finally.h"
 
 #if IS_LINUX
 #include "vstgui/lib/platform/platform_x11.h"
@@ -22,22 +23,21 @@ namespace sst::clap_saw_demo
 struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
 {
     ClapSawDemo *plugin{nullptr};
-    ClapRunLoop(ClapSawDemo *p) : plugin(p) {
-        _DBGCOUT << "Creating ClapRunLoop" << std::endl;
-    }
+    ClapRunLoop(ClapSawDemo *p) : plugin(p) { _DBGCOUT << "Creating ClapRunLoop" << std::endl; }
 
     std::multimap<int, VSTGUI::X11::IEventHandler *> eventHandlers;
     bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(fd) << _D(handler) << std::endl;
         auto res = plugin->registerPosixFd(fd);
-        eventHandlers.insert({fd,handler});
+        eventHandlers.insert({fd, handler});
         return res;
     }
-    bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override {
+    bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override
+    {
         _DBGCOUT << _D(handler) << std::endl;
         auto it = eventHandlers.begin();
-        while( it != eventHandlers.end())
+        while (it != eventHandlers.end())
         {
             const auto &[k, v] = *it;
             if (v == handler)
@@ -53,7 +53,7 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
     void fireFd(int fd)
     {
-        for (const auto &[k,v] : eventHandlers)
+        for (const auto &[k, v] : eventHandlers)
         {
             if (k == fd)
                 v->onEvent();
@@ -69,10 +69,11 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         timerHandlers[id] = handler;
         return res;
     }
-    bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override {
+    bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override
+    {
         _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
         auto it = timerHandlers.begin();
-        while( it != timerHandlers.end())
+        while (it != timerHandlers.end())
         {
             const auto &[k, v] = *it;
             if (v == handler)
@@ -87,7 +88,7 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
     void fireTimer(clap_id id)
     {
-        for (const auto &[k,v] : timerHandlers)
+        for (const auto &[k, v] : timerHandlers)
         {
             if (k == id)
                 v->onTimer();
@@ -139,17 +140,24 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
         VSTGUI::init(CFBundleGetMainBundle());
 #endif
 #if IS_WIN
-        VSTGUI::init (GetModuleHandle (nullptr));
+        VSTGUI::init(GetModuleHandle(nullptr));
 #endif
 #if IS_LINUX
         VSTGUI::init(nullptr);
         VSTGUI::X11::RunLoop::init(VSTGUI::owned(new ClapRunLoop(this)));
 #endif
+        static auto cleanup = VSTGUI::finally(
+            []()
+            {
+                _DBGCOUT << "Exiting VSTGUI" << std::endl;
+                VSTGUI::exit();
+            });
+
         everInit = true;
     }
     editor = new ClapSawDemoEditor(toUiQ, fromUiQ, dataCopyForUI);
 
-    for (const auto &[k,v] : paramToValue)
+    for (const auto &[k, v] : paramToValue)
     {
         auto r = ToUI();
         r.type = ToUI::PARAM_VALUE;
@@ -172,7 +180,7 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     editor->getFrame()->open(window->cocoa);
 #endif
 #if IS_LINUX
-    editor->getFrame()->open((void*)(window->x11));
+    editor->getFrame()->open((void *)(window->x11));
 #endif
 #if IS_WIN
     editor->getFrame()->open(window->win32);
@@ -191,7 +199,6 @@ bool ClapSawDemo::guiSetSize(uint32_t width, uint32_t height) noexcept
     return true;
 }
 
-
 bool ClapSawDemo::guiAdjustSize(uint32_t *width, uint32_t *height) noexcept
 {
     assert(editor);
@@ -205,16 +212,17 @@ struct ClapSawDemoBackground : public VSTGUI::CView
 {
     explicit ClapSawDemoBackground(const VSTGUI::CRect &s) : VSTGUI::CView(s) {}
 
-    void draw(VSTGUI::CDrawContext *dc) override {
-        auto r = VSTGUI::CRect(0,0,getWidth(), getHeight());
+    void draw(VSTGUI::CDrawContext *dc) override
+    {
+        auto r = VSTGUI::CRect(0, 0, getWidth(), getHeight());
         dc->setFillColor(VSTGUI::CColor(0x20, 0x20, 0x50));
         dc->drawRect(r, VSTGUI::kDrawFilled);
 
-        auto t = VSTGUI::CRect(0,0,getWidth(), 60);
+        auto t = VSTGUI::CRect(0, 0, getWidth(), 60);
         dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
         dc->drawRect(t, VSTGUI::kDrawFilled);
 
-        auto b = VSTGUI::CRect(VSTGUI::CPoint(0,getHeight()-20),VSTGUI::CPoint(getWidth(), 20));
+        auto b = VSTGUI::CRect(VSTGUI::CPoint(0, getHeight() - 20), VSTGUI::CPoint(getWidth(), 20));
         dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
         dc->drawRect(b, VSTGUI::kDrawFilled);
     }
@@ -225,7 +233,8 @@ ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
                                      const ClapSawDemo::DataCopyForUI &d)
     : inbound(i), outbound(o), synthData(d)
 {
-    frame = new VSTGUI::CFrame(VSTGUI::CRect(0, 0, ClapSawDemo::GUI_DEFAULT_W, ClapSawDemo::GUI_DEFAULT_H), this);
+    frame = new VSTGUI::CFrame(
+        VSTGUI::CRect(0, 0, ClapSawDemo::GUI_DEFAULT_W, ClapSawDemo::GUI_DEFAULT_H), this);
     frame->setBackgroundColor(VSTGUI::CColor(0x30, 0x30, 0x80));
     frame->remember();
 }
@@ -234,24 +243,29 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
 {
     _DBGMARK;
 
-    backgroundRender = new ClapSawDemoBackground(VSTGUI::CRect(0,0,getFrame()->getWidth(), getFrame()->getHeight()));
+    backgroundRender = new ClapSawDemoBackground(
+        VSTGUI::CRect(0, 0, getFrame()->getWidth(), getFrame()->getHeight()));
     frame->addView(backgroundRender);
-    
-    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), 40), "Clap Saw Synth Demo");
+
+    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), 40),
+                                    "Clap Saw Synth Demo");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontVeryBig);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     topLabel = l;
     frame->addView(topLabel);
 
-    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0,40), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "status");
+    l = new VSTGUI::CTextLabel(
+        VSTGUI::CRect(VSTGUI::CPoint(0, 40), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "status");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFont);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     statusLabel = l;
     frame->addView(statusLabel);
 
-    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0,getFrame()->getHeight()-20), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "https://some-url-soon");
+    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - 20),
+                                             VSTGUI::CPoint(getFrame()->getWidth(), 20)),
+                               "https://some-url-soon");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontSmaller);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
@@ -260,10 +274,8 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
 
     auto mkSlider = [this](int x, int y, int tag)
     {
-        auto q = new VSTGUI::CSlider(VSTGUI::CRect(VSTGUI::CPoint(x, y),
-                                                   VSTGUI::CPoint(25, 150)),
-                                     this, tag, 0, 150, nullptr,
-                                     nullptr);
+        auto q = new VSTGUI::CSlider(VSTGUI::CRect(VSTGUI::CPoint(x, y), VSTGUI::CPoint(25, 150)),
+                                     this, tag, 0, 150, nullptr, nullptr);
         q->setMin(0);
         q->setMax(1);
         q->setDrawStyle(VSTGUI::CSlider::kDrawFrame | VSTGUI::CSlider::kDrawValue |
@@ -273,10 +285,10 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
         return q;
     };
 
-    oscUnison = mkSlider(10,65,tags::unict);
+    oscUnison = mkSlider(10, 65, tags::unict);
     paramIdToCControl[ClapSawDemo::pmUnisonCount] = oscUnison;
 
-    oscSpread = mkSlider(40,65,tags::unisp);
+    oscSpread = mkSlider(40, 65, tags::unisp);
     paramIdToCControl[ClapSawDemo::pmUnisonSpread] = oscSpread;
 
     ampAttack = mkSlider(70, 65, tags::env_a);
@@ -301,14 +313,14 @@ void ClapSawDemoEditor::resize()
 {
     auto w = getFrame()->getWidth();
     auto h = getFrame()->getHeight();
-    backgroundRender->setViewSize(VSTGUI::CRect(0,0,w,h));
+    backgroundRender->setViewSize(VSTGUI::CRect(0, 0, w, h));
     backgroundRender->invalid();
 
-    topLabel->setViewSize(VSTGUI::CRect(0,0,w,40));
+    topLabel->setViewSize(VSTGUI::CRect(0, 0, w, 40));
     topLabel->invalid();
 
-    statusLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0,40), VSTGUI::CPoint(w,20)));
-    bottomLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0,h-20), VSTGUI::CPoint(w,20)));
+    statusLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, 40), VSTGUI::CPoint(w, 20)));
+    bottomLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - 20), VSTGUI::CPoint(w, 20)));
 }
 
 uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
@@ -372,7 +384,7 @@ void ClapSawDemoEditor::idle()
                 auto cc = q->second;
                 auto val = r.value;
 
-                switch(r.id)
+                switch (r.id)
                 {
                 case ClapSawDemo::pmUnisonSpread:
                     val = val / 100.0;
@@ -394,7 +406,7 @@ void ClapSawDemoEditor::idle()
     {
         lastDataUpdate = synthData.updateCount;
 
-        auto sl = std::string( "status : poly=" ) + std::to_string(synthData.polyphony);
+        auto sl = std::string("status : poly=") + std::to_string(synthData.polyphony);
         statusLabel->setText(sl.c_str());
         statusLabel->invalid();
     }
