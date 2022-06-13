@@ -2,11 +2,11 @@
 
 BP Todos before Tuesday EOD
 
-- state save and restore
-- Filter -> Simper
+- Strings for the Param Displays
 - UI basics done
 - Document code carefully
 - Write this README
+- state save and restore
 - move to surge-synthesizer/clap-saw-demo
 - Let folks know
 

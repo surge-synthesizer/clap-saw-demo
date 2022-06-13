@@ -49,13 +49,24 @@ struct SawDemoVoice
     void recalcPitch();
     void recalcFilter();
 
-    struct StereoBiQuadLPF
+    struct StereoSimperSVF // thanks to urs @ u-he and andy simper @ cytomic
     {
-        float b0{1}, b1{0}, b2{0}, a0{1}, a1{0}, a2{0};
+        float ic1eq[2]{0.f, 0.f}, ic2eq[2]{0.f, 0.f};
+        float g{0.f}, k{0.f}, gk{0.f}, a1{0.f}, a2{0.f}, a3{0.f}, ak{0.f};
+        enum Mode
+        {
+            LP,
+            HP,
+            BP,
+            NOTCH,
+            PEAK,
+            ALL
+        } mode{LP};
+
+        float low[2], band[2], high[2], notch[2], peak[2], all[2];
         void setCoeff(float key, float res, float srInv);
         void step(float &L, float &R);
         void init();
-        float x[2][3], y[2][3];
     } filter;
 
     std::array<float, max_uni> panL, panR, unitShift, norm;
@@ -71,6 +82,7 @@ struct SawDemoVoice
     float cutoff{69.0}, res{0.7};
     float ampAttack{0.01}, ampRelease{0.1};
     bool ampGate{false};
+    int filterMode{StereoSimperSVF::Mode::LP};
     float preFilterVCA{1.0};
 
     float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0}, preFilterVCAMod{0.0};

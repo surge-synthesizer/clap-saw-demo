@@ -31,6 +31,7 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     paramToValue[pmCutoff] = &cutoff;
     paramToValue[pmResonance] = &resonance;
     paramToValue[pmPreFilterVCA] = &preFilterVCA;
+    paramToValue[pmFilterMode] = &filterMode;
 }
 
 ClapSawDemo::~ClapSawDemo() = default;
@@ -166,6 +167,15 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->max_value = 1.0;
         info->default_value = 0.7;
         info->flags |= mod;
+        break;
+    case 8:
+        info->id = pmFilterMode;
+        strncpy(info->name, "Filter Type", CLAP_NAME_SIZE);
+        strncpy(info->module, "Filter", CLAP_NAME_SIZE);
+        info->min_value = SawDemoVoice::StereoSimperSVF::Mode::LP;
+        info->max_value = SawDemoVoice::StereoSimperSVF::Mode::ALL;
+        info->default_value = 0;
+        info->flags |= CLAP_PARAM_IS_STEPPED;
         break;
     }
     return true;
@@ -351,6 +361,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                 v.start(n);
                 v.noteid = nevt->note_id;
                 v.preFilterVCA = preFilterVCA;
+                v.filterMode = (int)std::round(filterMode); // I could be less lazy obvs
 
                 // reset all the modulations
                 v.cutoffMod = 0;

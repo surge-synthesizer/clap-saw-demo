@@ -31,6 +31,7 @@ void SawDemoVoice::recalcFilter()
 {
     auto co = cutoff + cutoffMod;
     auto rm = res + resMod;
+    filter.mode = (StereoSimperSVF::Mode)filterMode;
     filter.setCoeff(co, rm, srInv);
 }
 
@@ -154,54 +155,67 @@ void SawDemoVoice::release()
         state = NEWLY_OFF;
 }
 
-void SawDemoVoice::StereoBiQuadLPF::setCoeff(float key, float res, float srInv)
+void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 {
-    auto freq = 440.0 * pow(2.0, (key - 69) / 12.0);
-    res = std::clamp(res, 0.01f, 0.99f);
-    auto w0 = 2.0 * pival * freq * srInv;
-    auto cw0 = std::cos(w0);
-    auto sw0 = std::sin(w0);
-    auto alp = sw0 / (2.0 * res);
-
-    b0 = (1.0 - cw0) / 2;
-    b1 = 1.0 - cw0;
-    b2 = b0;
-    a0 = 1 + alp;
-    a1 = -2 * cw0;
-    a2 = 1 - alp;
+    auto co = 440.0 * pow(2.0, (key-69.0)/12);
+    g = std::tan(pival * co * srInv);
+    k = 2.0 - 2.0 * res;
+    gk = g + k;
+    a1 = 1.0 / ( 1.0 + g * gk);
+    a2 = g * a1;
+    a3 = g * a2;
+    ak = gk * a1;
 }
 
-void SawDemoVoice::StereoBiQuadLPF::step(float &L, float &R)
+void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
 {
-    x[0][2] = x[0][1];
-    x[0][1] = x[0][0];
-    x[0][0] = L;
-    x[1][2] = x[1][1];
-    x[1][1] = x[1][0];
-    x[1][0] = R;
-
-    y[0][2] = y[0][1];
-    y[0][1] = y[0][0];
-
-    y[1][2] = y[1][1];
-    y[1][1] = y[1][0];
-
-    for (int c = 0; c < 2; ++c)
+    float v0[2]{L,R};
+    float res[2]{0,0};
+    for (int c=0; c<2; ++c)
     {
-        y[c][0] = (b0 / a0) * x[c][0] + (b1 / a0) * x[c][1] + (b2 / a0) * x[c][2] -
-                  (a1 / a0) * y[c][1] - (a2 / a0) * y[c][2];
+        auto v3 = v0[c] - ic2eq[c];
+        v0[c] = a1 * v3 - ak * ic1eq[c];
+        auto v1 = a2 * v3 + a1 * ic1eq[c];
+        auto v2 = a3 * v3 + a2 * ic1eq[c] + ic2eq[c];
+
+        ic1eq[c] = 2 * v1 - ic1eq[c];
+        ic2eq[c] = 2 * v2 - ic2eq[c];
+
+        // I know that a branch in this loop is inefficient and so on
+        // remember this is mostly showing you how it hangs together.
+        switch(mode)
+        {
+        case LP:
+            res[c] = v2;
+            break;
+        case BP:
+            res[c] = v1;
+            break;
+        case HP:
+            res[c] = v0[c];
+            break;
+        case NOTCH:
+            res[c] = v2 + v0[c]; // low + high
+            break;
+        case PEAK:
+            res[c] = v2 - v0[c]; // low - high;
+            break;
+        case ALL:
+            res[c] = v2 + v0[c] - k * v1;// low + high - k * band
+            break;
+        }
     }
-    L = y[0][0];
-    R = y[1][0];
+
+    L = res[0];
+    R = res[1];
 }
 
-void SawDemoVoice::StereoBiQuadLPF::init()
+void SawDemoVoice::StereoSimperSVF::init()
 {
-    for (int c = 0; c < 2; ++c)
-        for (int s = 0; s < 3; ++s)
-        {
-            x[c][s] = 0;
-            y[c][s] = 0;
-        }
+    for (int c=0; c<2; ++c)
+    {
+        ic1eq[c] = 0.f;
+        ic2eq[c] = 0.f;
+    }
 }
 } // namespace sst::clap_saw_demo

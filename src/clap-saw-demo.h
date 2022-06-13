@@ -58,14 +58,15 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
         pmCutoff = 17,
         pmResonance = 94,
+        pmFilterMode = 14255
     };
-    static constexpr int nParams = 8;
+    static constexpr int nParams = 9;
 
     // These items are ONLY read and written on the audio thread, so they
     // are safe to be non-atomic doubles. We keep a map to locate them
     // for parameter updates.
     double unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7},
-        ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0};
+        ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0}, filterMode{0};
     std::unordered_map<clap_id, double *> paramToValue;
 
     // "Voice Management" is "have 64 and if you run out oh well"
