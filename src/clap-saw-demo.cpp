@@ -330,7 +330,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
             evt.port_index = 0;
             evt.channel = 0; // FIXME
             evt.key = v.key;
-            evt.note_id = v.noteid;
+            evt.note_id = v.note_id;
             evt.velocity = 0.0;
 
             ov->try_push(ov, &(evt.header));
@@ -425,7 +425,8 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
             }
             case paramIds::pmUnisonSpread:
             {
-                v.spreadMod = pevt->amount;
+                v.uniSpreadMod = pevt->amount;
+                v.recalcPitch();
                 break;
             }
             case paramIds::pmResonance:
@@ -443,10 +444,10 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 
         if (pevt->note_id >= 0)
         {
-            // poly by noteid
+            // poly by note_id
             for (auto &v : voices)
             {
-                if (v.noteid == pevt->note_id)
+                if (v.note_id == pevt->note_id)
                 {
                     applyToVoice(v);
                 }
@@ -485,10 +486,10 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                 {
                 case CLAP_NOTE_EXPRESSION_VOLUME:
                     // I can mod the VCA
-                    v.neVolumeAdj = pevt->value - 1.0;
+                    v.volumeNoteExpressionValue = pevt->value - 1.0;
                     break;
                 case CLAP_NOTE_EXPRESSION_TUNING:
-                    v.pitchMod = pevt->value;
+                    v.pitchNoteExpressionValue = pevt->value;
                     v.recalcPitch();
                     break;
                 }
@@ -507,7 +508,7 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
         {
             v.unison = std::max(1, std::min(7, (int)unisonCount));
             v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
-            v.noteid = noteid;
+            v.note_id = noteid;
 
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
@@ -522,9 +523,9 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
             v.cutoffMod = 0;
             v.resMod = 0;
             v.preFilterVCAMod = 0;
-            v.spreadMod = 0;
-            v.neVolumeAdj = 0;
-            v.pitchMod = 0;
+            v.uniSpreadMod = 0;
+            v.volumeNoteExpressionValue = 0;
+            v.pitchNoteExpressionValue = 0;
 
             v.start(key);
             break;
@@ -568,6 +569,7 @@ void ClapSawDemo::pushParamsToVoices()
             v.ampRelease = scaleTimeParamToSeconds(ampRelease);
             v.ampAttack = scaleTimeParamToSeconds(ampAttack);
             v.ampGate = ampIsGate > 0.5;
+            v.filterMode = filterMode;
 
             v.recalcPitch();
             v.recalcFilter();

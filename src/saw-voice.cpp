@@ -1,28 +1,35 @@
 /*
- * ClapSawDemo is Free and Open Source released under the MIT license
- *
- * Copright (c) 2021, Paul Walker
+* ClapSawDemo
+* https://github.com/surge-synthesizer/clap-saw-demo
+*
+* Copyright 2022 Paul Walker and others as listed in the git history
+*
+* Released under the MIT License. See LICENSE.md for full text.
  */
+
 
 #include "saw-voice.h"
 #include <cmath>
 #include <algorithm>
 
 /*
- * Nothing here is really clap related at all. It just makes some voices.
+ * From a perspective of learning clap or learning how vstgui and clap work together, this file
+ * can be safely skipped. It has basic DSP to generate saws into filters and a small envelope
+ * state management, but it is nothing surprising.
  */
+
 namespace sst::clap_saw_demo
 {
 float pival =
-    3.14159265358979323846; // I always forget what you need for M_PI to work on all paltforms
+    3.14159265358979323846; // I always forget what you need for M_PI to work on all platforms
 
 void SawDemoVoice::recalcPitch()
 {
-    baseFreq = 440.0 * pow(2.0, ((key + pitchMod + pitchBendWheel) - 69.0) / 12.0);
+    baseFreq = 440.0 * pow(2.0, ((key + pitchNoteExpressionValue + pitchBendWheel) - 69.0) / 12.0);
 
     for (int i = 0; i < unison; ++i)
     {
-        dPhase[i] = (baseFreq * pow(2.0, uniSpread * unitShift[i] / 100.0 / 12.0)) / sampleRate;
+        dPhase[i] = (baseFreq * pow(2.0, (uniSpread + uniSpreadMod) * unitShift[i] / 100.0 / 12.0)) / sampleRate;
         dPhaseInv[i] = 1.0 / dPhase[i];
     }
 }
@@ -31,7 +38,11 @@ void SawDemoVoice::recalcFilter()
 {
     auto co = cutoff + cutoffMod;
     auto rm = res + resMod;
-    filter.mode = (StereoSimperSVF::Mode)filterMode;
+
+    auto newfm = (StereoSimperSVF::Mode)filterMode;;
+    if (newfm != filter.mode)
+        filter.init();
+    filter.mode = newfm;
     filter.setCoeff(co, rm, srInv);
 }
 
@@ -85,7 +96,7 @@ void SawDemoVoice::step()
     }
 
 
-    AR *= (preFilterVCA + preFilterVCAMod + neVolumeAdj);
+    AR *= (preFilterVCA + preFilterVCAMod + volumeNoteExpressionValue);
     L = 0;
     R = 0;
 
@@ -131,7 +142,6 @@ void SawDemoVoice::start(int key)
     this->key = key;
     baseFreq = 440.0 * pow(2.0, (key - 69.0) / 12.0);
     state = (ampAttack > 0 ? ATTACK : HOLD);
-    filterState = DECAY;
     time = 0;
     filterTime = 0;
 
