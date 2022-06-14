@@ -5,11 +5,10 @@
 #ifndef CLAP_SAW_DEMO_LINUX_VSTGUI_ADAPTER_H
 #define CLAP_SAW_DEMO_LINUX_VSTGUI_ADAPTER_H
 
-
 namespace sst::clap_saw_demo
 {
 struct ClapSawDemo;
 void addLinuxVSTGUIPlugin(ClapSawDemo *);
 void removeLinuxVSTGUIPlugin(ClapSawDemo *);
-}
+} // namespace sst::clap_saw_demo
 #endif // CLAP_SAW_DEMO_LINUX_VSTGUI_ADAPTER_H

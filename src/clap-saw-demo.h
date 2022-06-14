@@ -1,7 +1,10 @@
 /*
- * ClapSawDemo is Free and Open Source released under the MIT license
+ * ClapSawDemo
+ * https://github.com/surge-synthesizer/clap-saw-demo
  *
- * Copright (c) 2021, Paul Walker
+ * Copyright 2022 Paul Walker and others as listed in the git history
+ *
+ * Released under the MIT License. See LICENSE.md for full text.
  */
 
 #ifndef CLAP_SAW_DEMO_H
@@ -10,13 +13,24 @@
 #include "debug-helpers.h"
 
 /*
- * This header file is the clap::Plugin from the plugin-glue helpers which gives
- * me an object implementing the clap protocol. It contains parameter maps, voice
- * management - all the stuff you would expect.
+ * ClapSawDemo is the core synthesizer class. It uses the clap-helpers C++ plugin extensions
+ * to present the CLAP C API as a C++ object model.
  *
- * The synth itself is a unison saw wave polysynth with a terrible ipmlementation
- * of a saw wave generator, a simple biquad LPF, and a few dumb linear envelopes.
- * It is not a synth you would want to use for anything other than demoware
+ * The core features here are
+ *
+ * - Hold the CLAP description static object
+ * - Advertise parameters and ports
+ * - Provide an event handler which responds to events and returns sound
+ * - Do voice management. Which is really not very sophisticated (it's just an array of 64
+ *   voice objects and we choose the next free one, and if you ask for a 65th voice, nothing
+ *   happens).
+ * - Provide the API points to delegate UI creation to a separate editor object,
+ *   coded in clap-saw-demo-editor
+ *
+ * This demo is coded to be relatively familiar and close to programming styles form other
+ * formats where the editor and synth collaborate closely; as described in clap-saw-demo-editor
+ * this object also holds the two queues the editor and synth use to communicate; and holds the
+ * bundle of atomic values to which the editor holds a const &.
  */
 
 #include <clap/helpers/plugin.hh>
@@ -40,16 +54,45 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     ClapSawDemo(const clap_host *host);
     ~ClapSawDemo();
 
-    ClapSawDemoEditor *editor{nullptr};
+    /*
+     * This static (defined in the cpp file) allows us to present a name, feature set,
+     * url etc... and is consumed by clap-saw-demo-pluginentry.cpp
+     */
+    static clap_plugin_descriptor desc;
 
     /*
-     * I have a set of parameter Ids which are purposefully non-contiguous to
-     * make sure I use the APIs correctly
+     * Activate makes sure sampleRate is distributed through
+     * the data structures, in this case by stamping the sampleRate
+     * onto each pre-allocated voice object.
      */
-    enum paramIds
+    bool activate(double sampleRate, uint32_t minFrameCount,
+                  uint32_t maxFrameCount) noexcept override
+    {
+        for (auto &v : voices)
+            v.sampleRate = sampleRate;
+        return true;
+    }
+
+    /*
+     * Parameter Handling:
+     *
+     * Each parameter gets a unique ID which is returned by 'paramsInfo' when the plugin
+     * is instantiated (or the plugin asks the host to reset). To avoid accidental bugs where
+     * I confuse creation index with param IDs, I am using arbitrary numbers for each
+     * parameter id.
+     *
+     * The implementation of paramsInfo contains the setup of these params.
+     *
+     * The actual synth has a very simple model to update parameter values. It
+     * contains a map from these IDs to a double * which the constructor sets up
+     * as references to members.
+     */
+    enum paramIds : uint32_t
     {
         pmUnisonCount = 1378,
         pmUnisonSpread = 2391,
+        pmOscDetune = 8675309,
+
         pmAmpAttack = 2874,
         pmAmpRelease = 728,
         pmAmpIsGate = 1942,
@@ -60,29 +103,30 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         pmResonance = 94,
         pmFilterMode = 14255
     };
-    static constexpr int nParams = 9;
+    static constexpr int nParams = 10;
 
-    // These items are ONLY read and written on the audio thread, so they
-    // are safe to be non-atomic doubles. We keep a map to locate them
-    // for parameter updates.
-    double unisonCount{3}, unisonSpread{10}, cutoff{69}, resonance{0.7},
-        ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0}, filterMode{0};
-    std::unordered_map<clap_id, double *> paramToValue;
+    bool implementsParams() const noexcept override { return true; }
+    bool isValidParamId(clap_id paramId) const noexcept override
+    {
+        return paramToValue.find(paramId) != paramToValue.end();
+    }
+    uint32_t paramsCount() const noexcept override { return nParams; }
+    bool paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept override;
+    bool paramsValue(clap_id paramId, double *value) noexcept override
+    {
+        *value = *paramToValue[paramId];
+        return true;
+    }
+    bool paramsValueToText(clap_id paramId, double value, char *display,
+                           uint32_t size) noexcept override;
 
-    // "Voice Management" is "have 64 and if you run out oh well"
-    std::array<SawDemoVoice, 64> voices;
-
-  protected:
     /*
-     * Plugin Setup. Activate makes sure sampleRate is distributed through
-     * the data structures, and the audio ports setup sets up a single
-     * stereo output.
+     * Many CLAP plugins will want input and output audio and note ports, altough
+     * the spec doesn't require this. Here as a simple synth we set up a single s
+     * stereo output and a single midi / clap_note input.
      */
-    bool activate(double sampleRate, uint32_t minFrameCount,
-                  uint32_t maxFrameCount) noexcept override;
-
     bool implementsAudioPorts() const noexcept override { return true; }
-    uint32_t audioPortsCount(bool isInput) const noexcept override;
+    uint32_t audioPortsCount(bool isInput) const noexcept override { return isInput ? 0 : 1; }
     bool audioPortsInfo(uint32_t index, bool isInput,
                         clap_audio_port_info *info) const noexcept override;
 
@@ -102,17 +146,6 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void handleNoteOff(int key);
     float scaleTimeParamToSeconds(float param); // 0->1 linear input to 0 -> 5 exp output
 
-    /*
-     * Parameter implementation is obvious and straight forward
-     */
-    bool implementsParams() const noexcept override;
-    bool isValidParamId(clap_id paramId) const noexcept override;
-    uint32_t paramsCount() const noexcept override;
-    bool paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept override;
-    bool paramsValue(clap_id paramId, double *value) noexcept override;
-    bool paramsValueToText(clap_id paramId, double value, char *display,
-                           uint32_t size) noexcept override;
-
     bool implementsState() const noexcept override { return true; }
     bool stateSave(const clap_ostream *strea) noexcept override;
     bool stateLoad(const clap_istream *strea) noexcept override;
@@ -125,10 +158,6 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         info->flags = CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES;
         return true;
     }
-
-  public:
-    // Finally I have a static description
-    static clap_plugin_descriptor desc;
 
   protected:
     // These are implemented in clap-saw-demo-editor.
@@ -151,16 +180,18 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
 #if IS_LINUX
   public:
-    bool implementsTimerSupport() const noexcept override {
+    bool implementsTimerSupport() const noexcept override
+    {
         _DBGMARK;
         return true;
     }
-    void onTimer(clap_id timerId) noexcept override ;
+    void onTimer(clap_id timerId) noexcept override;
 
     bool registerTimer(uint32_t interv, clap_id *id);
     bool unregisterTimer(clap_id id);
 
-    bool implementsPosixFdSupport() const noexcept override {
+    bool implementsPosixFdSupport() const noexcept override
+    {
         _DBGMARK;
         return true;
     }
@@ -171,7 +202,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 #endif
 
   public:
-    static constexpr uint32_t GUI_DEFAULT_W = 330, GUI_DEFAULT_H = 530;
+    static constexpr uint32_t GUI_DEFAULT_W = 390, GUI_DEFAULT_H = 530;
 
   public:
     /*
@@ -216,6 +247,19 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
     SynthToUI_Queue_t toUiQ;
     UIToSynth_Queue_t fromUiQ;
+
+  private:
+    ClapSawDemoEditor *editor{nullptr};
+
+    // These items are ONLY read and written on the audio thread, so they
+    // are safe to be non-atomic doubles. We keep a map to locate them
+    // for parameter updates.
+    double unisonCount{3}, unisonSpread{10}, oscDetune{0}, cutoff{69}, resonance{0.7},
+        ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0}, filterMode{0};
+    std::unordered_map<clap_id, double *> paramToValue;
+
+    // "Voice Management" is "have 64 and if you run out oh well"
+    std::array<SawDemoVoice, 64> voices;
 };
 } // namespace sst::clap_saw_demo
 

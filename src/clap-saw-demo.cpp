@@ -26,6 +26,7 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     _DBGCOUT << "Constructing ClapSawDemo" << std::endl;
     paramToValue[pmUnisonCount] = &unisonCount;
     paramToValue[pmUnisonSpread] = &unisonSpread;
+    paramToValue[pmOscDetune] = &oscDetune;
     paramToValue[pmAmpAttack] = &ampAttack;
     paramToValue[pmAmpRelease] = &ampRelease;
     paramToValue[pmAmpIsGate] = &ampIsGate;
@@ -34,7 +35,6 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     paramToValue[pmPreFilterVCA] = &preFilterVCA;
     paramToValue[pmFilterMode] = &filterMode;
 }
-
 ClapSawDemo::~ClapSawDemo() = default;
 
 const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, nullptr};
@@ -45,57 +45,29 @@ clap_plugin_descriptor ClapSawDemo::desc = {CLAP_VERSION,
                                             "https://surge-synth-team.org",
                                             "",
                                             "",
-                                            "0.9.0",
+                                            "1.0.0",
                                             "A simple sawtooth synth to show CLAP features.",
                                             features};
-
 /*
- * Set up a simple stereo output
+ * PARAMETER SETUP SECTION
  */
-uint32_t ClapSawDemo::audioPortsCount(bool isInput) const noexcept { return isInput ? 0 : 1; }
-bool ClapSawDemo::audioPortsInfo(uint32_t index, bool isInput,
-                                 clap_audio_port_info *info) const noexcept
-{
-    if (isInput || index != 0)
-        return false;
-
-    info->id = 0;
-    strncpy(info->name, "main", sizeof(info->name));
-    info->flags = CLAP_AUDIO_PORT_IS_MAIN;
-    info->channel_count = 2;
-    info->port_type = CLAP_PORT_STEREO;
-    return true;
-}
-
-/*
- * On activation distribute samplerate to the voices
- */
-bool ClapSawDemo::activate(double sampleRate, uint32_t minFrameCount,
-                           uint32_t maxFrameCount) noexcept
-{
-    for (auto &v : voices)
-        v.sampleRate = sampleRate;
-    return true;
-}
-
-/*
- * Parameter Handling is mostly validating IDs (via their inclusion in the
- * param map and setting the info and getting values from the map pointers.
- */
-bool ClapSawDemo::implementsParams() const noexcept { return true; }
-uint32_t ClapSawDemo::paramsCount() const noexcept { return nParams; }
-bool ClapSawDemo::isValidParamId(clap_id paramId) const noexcept
-{
-    return paramToValue.find(paramId) != paramToValue.end();
-}
 bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const noexcept
 {
     if (paramIndex >= nParams)
         return false;
 
+    /*
+     * Our job is to populate the clap_param_info. We set each of our parameters as AUTOMATABLE
+     * and then begin setting per-parameter features.
+     */
     info->flags = CLAP_PARAM_IS_AUTOMATABLE;
 
-    auto mod = CLAP_PARAM_IS_MODULATABLE | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID;
+    /*
+     * These constants activate polyphonic modulatability on a parameter. Not all the params here
+     * support that
+     */
+    auto mod = CLAP_PARAM_IS_MODULATABLE | CLAP_PARAM_IS_MODULATABLE_PER_NOTE_ID |
+               CLAP_PARAM_IS_MODULATABLE_PER_KEY;
 
     switch (paramIndex)
     {
@@ -118,31 +90,40 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->flags |= mod;
         break;
     case 2:
+        info->id = pmOscDetune;
+        strncpy(info->name, "Oscillator Detuning (in cents)", CLAP_NAME_SIZE);
+        strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
+        info->min_value = -200;
+        info->max_value = 200;
+        info->default_value = 0;
+        info->flags |= mod;
+        break;
+    case 3:
         info->id = pmAmpAttack;
         strncpy(info->name, "Amplitude Attack (s)", CLAP_NAME_SIZE);
-        strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
+        strncpy(info->module, "Amplitude Envelope Generator", CLAP_NAME_SIZE);
         info->min_value = 0;
         info->max_value = 1;
         info->default_value = 0.01;
         break;
-    case 3:
+    case 4:
         info->id = pmAmpRelease;
         strncpy(info->name, "Amplitude Release (s)", CLAP_NAME_SIZE);
-        strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
+        strncpy(info->module, "Amplitude Envelope Generator", CLAP_NAME_SIZE);
         info->min_value = 0;
         info->max_value = 1;
         info->default_value = 0.2;
         break;
-    case 4:
+    case 5:
         info->id = pmAmpIsGate;
         strncpy(info->name, "Deactivate Amp Envelope", CLAP_NAME_SIZE);
-        strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
+        strncpy(info->module, "Amplitude Envelope Generator", CLAP_NAME_SIZE);
         info->min_value = 0;
         info->max_value = 1;
         info->default_value = 0;
         info->flags |= CLAP_PARAM_IS_STEPPED;
         break;
-    case 5:
+    case 6:
         info->id = pmPreFilterVCA;
         strncpy(info->name, "Pre Filter VCA", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -151,7 +132,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->default_value = 1;
         info->flags |= mod;
         break;
-    case 6:
+    case 7:
         info->id = pmCutoff;
         strncpy(info->name, "Cutoff in Keys", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -160,7 +141,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->default_value = 69;
         info->flags |= mod;
         break;
-    case 7:
+    case 8:
         info->id = pmResonance;
         strncpy(info->name, "Resonance", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -169,7 +150,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         info->default_value = 0.7;
         info->flags |= mod;
         break;
-    case 8:
+    case 9:
         info->id = pmFilterMode;
         strncpy(info->name, "Filter Type", CLAP_NAME_SIZE);
         strncpy(info->module, "Filter", CLAP_NAME_SIZE);
@@ -181,9 +162,92 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
     }
     return true;
 }
-bool ClapSawDemo::paramsValue(clap_id paramId, double *value) noexcept
+
+bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display,
+                                    uint32_t size) noexcept
 {
-    *value = *paramToValue[paramId];
+    auto pid = (paramIds)paramId;
+    std::string sValue{"ERROR"};
+    auto n2s = [](auto n)
+    {
+        std::ostringstream oss;
+        oss << std::setprecision(6) << n;
+        return oss.str();
+    };
+    switch (pid)
+    {
+    case pmResonance:
+    case pmPreFilterVCA:
+        sValue = n2s(value);
+        break;
+    case pmAmpRelease:
+    case pmAmpAttack:
+        sValue = n2s(scaleTimeParamToSeconds(value)) + " s";
+        break;
+    case pmUnisonCount:
+        sValue = n2s(static_cast<int>(value)) + " voices";
+        break;
+    case pmUnisonSpread:
+    case pmOscDetune:
+        sValue = n2s(value) + " cents";
+        break;
+    case pmAmpIsGate:
+        sValue = value > 0.5 ? "AEG Bypassed" : "AEG On";
+        break;
+    case pmCutoff:
+    {
+        auto co = 440 * pow(2.0, (value - 69) / 12);
+        sValue = n2s(co) + " Hz";
+        break;
+    }
+    case pmFilterMode:
+    {
+        auto fm = (SawDemoVoice::StereoSimperSVF::Mode) static_cast<int>(value);
+        switch (fm)
+        {
+        case SawDemoVoice::StereoSimperSVF::LP:
+            sValue = "LowPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::BP:
+            sValue = "BandPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::HP:
+            sValue = "HighPass";
+            break;
+        case SawDemoVoice::StereoSimperSVF::NOTCH:
+            sValue = "Notch";
+            break;
+        case SawDemoVoice::StereoSimperSVF::PEAK:
+            sValue = "Peak";
+            break;
+        case SawDemoVoice::StereoSimperSVF::ALL:
+            sValue = "AllPass";
+            break;
+        }
+        break;
+    }
+    }
+
+    strncpy(display, sValue.c_str(), CLAP_NAME_SIZE);
+    return true;
+}
+
+/*
+ * Stereo out, Midi in, in a pretty obvious way.
+ * The only trick is the idi in also has NOTE_DIALECT_CLAP which provides us
+ * with options on note expression and the like.
+ */
+bool ClapSawDemo::audioPortsInfo(uint32_t index, bool isInput,
+                                 clap_audio_port_info *info) const noexcept
+{
+    if (isInput || index != 0)
+        return false;
+
+    info->id = 0;
+    strncpy(info->name, "main", sizeof(info->name));
+    info->flags = CLAP_AUDIO_PORT_IS_MAIN;
+    info->channel_count = 2;
+    info->port_type = CLAP_PORT_STEREO;
     return true;
 }
 
@@ -271,7 +335,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     auto ev = process->in_events;
     auto sz = ev->size(ev);
 
-    const clap_event_header_t  *nextEvent{nullptr};
+    const clap_event_header_t *nextEvent{nullptr};
     uint32_t nextEventIndex{0};
     if (sz != 0)
     {
@@ -281,7 +345,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     for (int i = 0; i < process->frames_count; ++i)
     {
         // Do I have an event to process
-        while(nextEvent && nextEvent->time == i)
+        while (nextEvent && nextEvent->time == i)
         {
             handleInboundEvent(nextEvent);
             nextEventIndex++;
@@ -353,7 +417,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     {
         auto mevt = reinterpret_cast<const clap_event_midi *>(evt);
         auto msg = mevt->data[0] & 0xF0;
-        switch(msg)
+        switch (msg)
         {
         case 0x90:
         {
@@ -426,6 +490,13 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
             case paramIds::pmUnisonSpread:
             {
                 v.uniSpreadMod = pevt->amount;
+                v.recalcPitch();
+                break;
+            }
+            case paramIds::pmOscDetune:
+            {
+                // _DBGCOUT << "Detune Mod" << _D(pevt->amount) << std::endl;
+                v.oscDetuneMod = pevt->amount;
                 v.recalcPitch();
                 break;
             }
@@ -511,6 +582,7 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
             v.note_id = noteid;
 
             v.uniSpread = unisonSpread;
+            v.oscDetune = oscDetune;
             v.cutoff = cutoff;
             v.res = resonance;
             v.preFilterVCA = preFilterVCA;
@@ -518,9 +590,9 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
             v.ampAttack = scaleTimeParamToSeconds(ampAttack);
             v.ampGate = ampIsGate > 0.5;
 
-
             // reset all the modulations
             v.cutoffMod = 0;
+            v.oscDetuneMod = 0;
             v.resMod = 0;
             v.preFilterVCAMod = 0;
             v.uniSpreadMod = 0;
@@ -563,6 +635,7 @@ void ClapSawDemo::pushParamsToVoices()
         if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
         {
             v.uniSpread = unisonSpread;
+            v.oscDetune = oscDetune;
             v.cutoff = cutoff;
             v.res = resonance;
             v.preFilterVCA = preFilterVCA;
@@ -577,81 +650,11 @@ void ClapSawDemo::pushParamsToVoices()
     }
 }
 
-bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display,
-                                    uint32_t size) noexcept
-{
-    auto pid = (paramIds)paramId;
-    std::string sValue{"ERROR"};
-    auto n2s = [](auto n)
-    {
-        std::ostringstream  oss;
-        oss << std::setprecision(6) << n;
-        return oss.str();
-    };
-    switch(pid)
-    {
-    case pmResonance:
-    case pmPreFilterVCA:
-        sValue = n2s(value);
-        break;
-    case pmAmpRelease:
-    case pmAmpAttack:
-        sValue = n2s(scaleTimeParamToSeconds(value)) + " s";
-        break;
-    case pmUnisonCount:
-        sValue = n2s(static_cast<int>(value)) + " voices";
-        break;
-    case pmUnisonSpread:
-        sValue = n2s(value) + " cents";
-        break;
-    case pmAmpIsGate:
-        sValue = value > 0.5 ? "AEG Bypassed" : "AEG On";
-        break;
-    case pmCutoff:
-    {
-        auto co = 440 * pow(2.0, (value - 69)/12);
-        sValue = n2s(co) + " Hz";
-        break;
-    }
-    case pmFilterMode:
-    {
-        auto fm = (SawDemoVoice::StereoSimperSVF::Mode)static_cast<int>(value);
-        switch(fm)
-        {
-        case SawDemoVoice::StereoSimperSVF::LP:
-            sValue = "LowPass";
-            break;
-        case SawDemoVoice::StereoSimperSVF::BP:
-            sValue = "BandPass";
-            break;
-        case SawDemoVoice::StereoSimperSVF::HP:
-            sValue = "HighPass";
-            break;
-        case SawDemoVoice::StereoSimperSVF::NOTCH:
-            sValue = "Notch";
-            break;
-        case SawDemoVoice::StereoSimperSVF::PEAK:
-            sValue = "Peak";
-            break;
-        case SawDemoVoice::StereoSimperSVF::ALL:
-            sValue = "AllPass";
-            break;
-        }
-        break;
-    }
-
-    }
-
-    strncpy(display, sValue.c_str(), CLAP_NAME_SIZE);
-    return true;
-}
-
 float ClapSawDemo::scaleTimeParamToSeconds(float param)
 {
     auto scaleTime = std::clamp((param - 2.0 / 3.0) * 6, -100.0, 2.0);
     auto res = powf(2.f, scaleTime);
     return res;
-
 }
 
 bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
@@ -671,7 +674,7 @@ bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
     auto st = oss.str();
     auto c = st.c_str();
     auto s = st.length() + 1; // write the null terminator
-    while (s>0)
+    while (s > 0)
     {
         auto r = stream->write(stream, c, s);
         if (r < 0)
@@ -681,7 +684,6 @@ bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
     }
     return true;
 }
-
 
 bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 {
@@ -702,7 +704,7 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
     while ((spos = dat.find(";")) != std::string::npos)
     {
         auto l = dat.substr(0, spos);
-        dat = dat.substr(spos+1);
+        dat = dat.substr(spos + 1);
         items.push_back(l);
     }
 
@@ -713,11 +715,11 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
     }
     for (auto i : items)
     {
-        auto epos = i.find( "=" );
+        auto epos = i.find("=");
         if (epos == std::string::npos)
             continue; // oh well
         auto id = std::atoi(i.substr(0, epos).c_str());
-        auto val = std::atof(i.substr(epos+1).c_str());
+        auto val = std::atof(i.substr(epos + 1).c_str());
 
         *(paramToValue[(paramIds)id]) = val;
     }

@@ -1,12 +1,11 @@
 /*
-* ClapSawDemo
-* https://github.com/surge-synthesizer/clap-saw-demo
-*
-* Copyright 2022 Paul Walker and others as listed in the git history
-*
-* Released under the MIT License. See LICENSE.md for full text.
+ * ClapSawDemo
+ * https://github.com/surge-synthesizer/clap-saw-demo
+ *
+ * Copyright 2022 Paul Walker and others as listed in the git history
+ *
+ * Released under the MIT License. See LICENSE.md for full text.
  */
-
 
 #include "saw-voice.h"
 #include <cmath>
@@ -25,11 +24,16 @@ float pival =
 
 void SawDemoVoice::recalcPitch()
 {
-    baseFreq = 440.0 * pow(2.0, ((key + pitchNoteExpressionValue + pitchBendWheel) - 69.0) / 12.0);
+    baseFreq = 440.0 * pow(2.0, ((key + pitchNoteExpressionValue + pitchBendWheel +
+                                  (oscDetune + oscDetuneMod) / 100) -
+                                 69.0) /
+                                    12.0);
 
     for (int i = 0; i < unison; ++i)
     {
-        dPhase[i] = (baseFreq * pow(2.0, (uniSpread + uniSpreadMod) * unitShift[i] / 100.0 / 12.0)) / sampleRate;
+        dPhase[i] =
+            (baseFreq * pow(2.0, (uniSpread + uniSpreadMod) * unitShift[i] / 100.0 / 12.0)) /
+            sampleRate;
         dPhaseInv[i] = 1.0 / dPhase[i];
     }
 }
@@ -39,7 +43,8 @@ void SawDemoVoice::recalcFilter()
     auto co = cutoff + cutoffMod;
     auto rm = res + resMod;
 
-    auto newfm = (StereoSimperSVF::Mode)filterMode;;
+    auto newfm = (StereoSimperSVF::Mode)filterMode;
+    ;
     if (newfm != filter.mode)
         filter.init();
     filter.mode = newfm;
@@ -78,10 +83,10 @@ void SawDemoVoice::step()
         {
             AR = 1.0;
             const auto lastSeg = 0.02;
-            if (tn > (1.0-lastSeg))
+            if (tn > (1.0 - lastSeg))
             {
                 // Avoid a click with a last 2% fade
-                AR = 1 - (tn - (1.0-lastSeg))/lastSeg;
+                AR = 1 - (tn - (1.0 - lastSeg)) / lastSeg;
             }
         }
     }
@@ -94,7 +99,6 @@ void SawDemoVoice::step()
         if (ampGate)
             AR = 1.0;
     }
-
 
     AR *= (preFilterVCA + preFilterVCAMod + volumeNoteExpressionValue);
     L = 0;
@@ -112,7 +116,7 @@ void SawDemoVoice::step()
          * channels.
          */
         double phaseSteps[3];
-        for (int q=-2; q <= 0; ++q)
+        for (int q = -2; q <= 0; ++q)
         {
             double ph = phase[i] + q * dPhase[i];
             // Our calculation assumes phase in -1,1 and this phase is
@@ -121,7 +125,8 @@ void SawDemoVoice::step()
             phaseSteps[q + 2] = (ph * ph - 1) * ph / 6.0;
         }
         // the 0.25 here is because of the phase rescaling again
-        double saw = (phaseSteps[0] + phaseSteps[2] - 2 * phaseSteps[1]) * 0.25 * dPhaseInv[i] * dPhaseInv[i];
+        double saw = (phaseSteps[0] + phaseSteps[2] - 2 * phaseSteps[1]) * 0.25 * dPhaseInv[i] *
+                     dPhaseInv[i];
 
         L += 0.2 * norm[i] * AR * panL[i] * saw;
         R += 0.2 * norm[i] * AR * panR[i] * saw;
@@ -182,13 +187,13 @@ void SawDemoVoice::release()
 
 void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 {
-    auto co = 440.0 * pow(2.0, (key-69.0)/12);
+    auto co = 440.0 * pow(2.0, (key - 69.0) / 12);
     co = std::clamp(co, 10.0, 15000.0); // just to be safe/lazy
     res = std::clamp(res, 0.01f, 0.999f);
     g = std::tan(pival * co * srInv);
     k = 2.0 - 2.0 * res;
     gk = g + k;
-    a1 = 1.0 / ( 1.0 + g * gk);
+    a1 = 1.0 / (1.0 + g * gk);
     a2 = g * a1;
     a3 = g * a2;
     ak = gk * a1;
@@ -196,9 +201,9 @@ void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 
 void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
 {
-    float vin[2]{L,R};
-    float res[2]{0,0};
-    for (int c=0; c<2; ++c)
+    float vin[2]{L, R};
+    float res[2]{0, 0};
+    for (int c = 0; c < 2; ++c)
     {
         auto v3 = vin[c] - ic2eq[c];
         auto v0 = a1 * v3 - ak * ic1eq[c];
@@ -210,7 +215,7 @@ void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
 
         // I know that a branch in this loop is inefficient and so on
         // remember this is mostly showing you how it hangs together.
-        switch(mode)
+        switch (mode)
         {
         case LP:
             res[c] = v2;
@@ -228,7 +233,7 @@ void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
             res[c] = v2 - v0; // low - high;
             break;
         case ALL:
-            res[c] = v2 + v0 - k * v1;// low + high - k * band
+            res[c] = v2 + v0 - k * v1; // low + high - k * band
             break;
         }
     }
@@ -239,7 +244,7 @@ void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
 
 void SawDemoVoice::StereoSimperSVF::init()
 {
-    for (int c=0; c<2; ++c)
+    for (int c = 0; c < 2; ++c)
     {
         ic1eq[c] = 0.f;
         ic2eq[c] = 0.f;

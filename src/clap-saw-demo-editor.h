@@ -17,8 +17,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     ClapSawDemo::UIToSynth_Queue_t &outbound;
     const ClapSawDemo::DataCopyForUI &synthData;
 
-    ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &,
-                      ClapSawDemo::UIToSynth_Queue_t &,
+    ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &, ClapSawDemo::UIToSynth_Queue_t &,
                       const ClapSawDemo::DataCopyForUI &);
     ~ClapSawDemoEditor();
 
@@ -31,6 +30,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
         env_r,
         unict,
         unisp,
+        oscdetune,
 
         vca,
         cutoff,
@@ -55,7 +55,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     VSTGUI::CTextLabel *ampLabel{nullptr};
     VSTGUI::CCheckBox *ampToggle{nullptr};
     VSTGUI::CSlider *ampAttack{nullptr}, *ampRelease{nullptr};
-    VSTGUI::CSlider *oscUnison{nullptr}, *oscSpread{nullptr};
+    VSTGUI::CSlider *oscUnison{nullptr}, *oscSpread{nullptr}, *oscDetune{nullptr};
     VSTGUI::CSlider *preFilterVCA{nullptr}, *filtCutoff{nullptr}, *filtRes{nullptr};
 
     std::unordered_map<int, VSTGUI::CControl *> paramIdToCControl;

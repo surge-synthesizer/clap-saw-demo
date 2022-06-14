@@ -19,6 +19,9 @@ set(CMAKE_CXX_STANDARD 17)
 # use asan as an option (currently mac only)
 option(USE_SANITIZER "Build and link with ASAN" FALSE)
 
+# Copy on mac (could expand to other platforms)
+option(MACOS_COPY_AFTER_BUILD "Copy the clap to ~/Library on MACOS" FALSE)
+
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
@@ -59,12 +62,15 @@ if(APPLE)
             $<$<BOOL:${USE_SANITIZER}>:-fsanitize=undefined>
             )
 
-    set(products_folder ${CMAKE_BINARY_DIR})
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E echo "Installing ${products_folder}/${PROJECT_NAME}.clap to ~/Library/Audio/Plug-Ins/CLAP/"
-            COMMAND ${CMAKE_COMMAND} -E make_directory "~/Library/Audio/Plug-Ins/CLAP"
-            COMMAND ${CMAKE_COMMAND} -E copy_directory "${products_folder}/${PROJECT_NAME}.clap" "~/Library/Audio/Plug-Ins/CLAP/${PROJECT_NAME}.clap"
-            )
+    if (${MACOS_COPY_AFTER_BUILD})
+        message(STATUS "Will copy plugin after every build" )
+        set(products_folder ${CMAKE_BINARY_DIR})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E echo "Installing ${products_folder}/${PROJECT_NAME}.clap to ~/Library/Audio/Plug-Ins/CLAP/"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "~/Library/Audio/Plug-Ins/CLAP"
+                COMMAND ${CMAKE_COMMAND} -E copy_directory "${products_folder}/${PROJECT_NAME}.clap" "~/Library/Audio/Plug-Ins/CLAP/${PROJECT_NAME}.clap"
+                )
+    endif()
 elseif(UNIX)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IS_LINUX=1)
     target_sources(${PROJECT_NAME} PRIVATE src/linux-vstgui-adapter.cpp)

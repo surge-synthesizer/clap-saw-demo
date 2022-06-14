@@ -2,8 +2,6 @@
 // Created by paul on 6/13/22.
 //
 
-
-
 #include <vstgui/lib/vstguiinit.h>
 
 #if IS_LINUX
@@ -119,4 +117,4 @@ void removeLinuxVSTGUIPlugin(ClapSawDemo *that)
 }
 #endif
 
-}
+} // namespace sst::clap_saw_demo

@@ -1,11 +1,11 @@
 /*
-* ClapSawDemo
-* https://github.com/surge-synthesizer/clap-saw-demo
-*
-* Copyright 2022 Paul Walker and others as listed in the git history
-*
-* Released under the MIT License. See LICENSE.md for full text.
-*/
+ * ClapSawDemo
+ * https://github.com/surge-synthesizer/clap-saw-demo
+ *
+ * Copyright 2022 Paul Walker and others as listed in the git history
+ *
+ * Released under the MIT License. See LICENSE.md for full text.
+ */
 
 #ifndef CLAP_SAW_DEMO_VOICE_H
 #define CLAP_SAW_DEMO_VOICE_H
@@ -39,7 +39,7 @@ struct SawDemoVoice
 {
     static constexpr int max_uni = 7;
 
-    int key; // The midi key which triggered me
+    int key;     // The midi key which triggered me
     int note_id; // and the note_id delivered by the host (used for note expressions)
 
     // unison count is snapped at voice on
@@ -47,6 +47,9 @@ struct SawDemoVoice
 
     // Note the pattern that we have an item and its modulator as the API
     float uniSpread{10.0}, uniSpreadMod{0.0};
+
+    // The oscillator detuning
+    float oscDetune{0}, oscDetuneMod{0};
 
     // Filter characteristics. After adjusting these call 'recalcFilter'.
     int filterMode{StereoSimperSVF::Mode::LP};
@@ -72,7 +75,6 @@ struct SawDemoVoice
     // Finally, please set my sample rate at voice on. Thanks!
     float sampleRate{0};
 
-
     // What is my AEG state. This will advance across attack hold releasing NEWLY_OFF
     // even if the AEG is bypasssed. NEWLY_OFF is a state which lets us detect voices which
     // terminate in a block so we can inform the DAW with a CLAP_EVENT_NOTE_END for polyphonic
@@ -85,7 +87,6 @@ struct SawDemoVoice
         NEWLY_OFF,
         RELEASING
     } state{OFF};
-
 
     // L / R are the output.
     float L{0.f}, R{0.f};
