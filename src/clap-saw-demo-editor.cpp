@@ -250,6 +250,9 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
     paramIdToCControl[ClapSawDemo::pmUnisonSpread] = oscSpread;
 
     oscDetune = mkSliderWithLabel(130, oscRow, tags::oscdetune, "Detune");
+    oscDetune->setMin(-1);
+    oscDetune->setDrawStyle(oscDetune->getDrawStyle() | VSTGUI::CSlider::kDrawValueFromCenter |
+                            VSTGUI::CSlider::kDrawInverted);
     paramIdToCControl[ClapSawDemo::pmOscDetune] = oscDetune;
 
     ampAttack = mkSliderWithLabel(10, aegRow, tags::env_a, "Attack");
@@ -343,7 +346,7 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     }
     case tags::oscdetune:
     {
-        q.value = c->getValue() * 100.0;
+        q.value = c->getValue() * 200.0;
         break;
     }
     case tags::unict:
@@ -378,6 +381,9 @@ void ClapSawDemoEditor::idle()
                 {
                 case ClapSawDemo::pmUnisonSpread:
                     val = val / 100.0;
+                    break;
+                case ClapSawDemo::pmOscDetune:
+                    val = val / 200.0;
                     break;
                 case ClapSawDemo::pmUnisonCount:
                     val = val / SawDemoVoice::max_uni;

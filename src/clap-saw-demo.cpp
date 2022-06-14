@@ -464,12 +464,15 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         auto v = reinterpret_cast<const clap_event_param_value *>(evt);
 
         *paramToValue[v->param_id] = v->value;
-        auto r = ToUI();
-        r.type = ToUI::PARAM_VALUE;
-        r.id = v->param_id;
-        r.value = (double)v->value;
+        if (editor)
+        {
+            auto r = ToUI();
+            r.type = ToUI::PARAM_VALUE;
+            r.id = v->param_id;
+            r.value = (double)v->value;
 
-        toUiQ.try_enqueue(r);
+            toUiQ.try_enqueue(r);
+        }
         pushParamsToVoices();
     }
     case CLAP_EVENT_PARAM_MOD:
@@ -606,10 +609,14 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
 
     dataCopyForUI.updateCount++;
     dataCopyForUI.polyphony++;
-    auto r = ToUI();
-    r.type = ToUI::MIDI_NOTE_ON;
-    r.id = (uint32_t)key;
-    toUiQ.try_enqueue(r);
+
+    if (editor)
+    {
+        auto r = ToUI();
+        r.type = ToUI::MIDI_NOTE_ON;
+        r.id = (uint32_t)key;
+        toUiQ.try_enqueue(r);
+    }
 }
 
 void ClapSawDemo::handleNoteOff(int n)
@@ -622,10 +629,13 @@ void ClapSawDemo::handleNoteOff(int n)
         }
     }
 
-    auto r = ToUI();
-    r.type = ToUI::MIDI_NOTE_OFF;
-    r.id = (uint32_t)n;
-    toUiQ.try_enqueue(r);
+    if (editor)
+    {
+        auto r = ToUI();
+        r.type = ToUI::MIDI_NOTE_OFF;
+        r.id = (uint32_t)n;
+        toUiQ.try_enqueue(r);
+    }
 }
 
 void ClapSawDemo::pushParamsToVoices()

@@ -119,6 +119,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     }
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override;
+    // Convert 0-1 linear into 0-4s exponential
+    float scaleTimeParamToSeconds(float param);
 
     /*
      * Many CLAP plugins will want input and output audio and note ports, altough
@@ -136,20 +138,11 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
                        clap_note_port_info *info) const noexcept override;
 
     /*
-     * Process manages the events (midi and automation) and generates the
-     * sound of course by summing across active voices
+     * VoiceInfo is an optional (currently draft) extension where you advertise
+     * polyphony information. Crucially here though it allows you to advertise that
+     * you can support overlapping notes, which in conjunction with CLAP_DIALECT_NOTE
+     * and the Bitwig voice stack modulator lets you stack this little puppy!
      */
-    clap_process_status process(const clap_process *process) noexcept override;
-    void handleInboundEvent(const clap_event_header_t *evt);
-    void pushParamsToVoices();
-    void handleNoteOn(int key, int noteid);
-    void handleNoteOff(int key);
-    float scaleTimeParamToSeconds(float param); // 0->1 linear input to 0 -> 5 exp output
-
-    bool implementsState() const noexcept override { return true; }
-    bool stateSave(const clap_ostream *strea) noexcept override;
-    bool stateLoad(const clap_istream *strea) noexcept override;
-
     bool implementsVoiceInfo() const noexcept override { return true; }
     bool voiceInfoGet(clap_voice_info *info) noexcept override
     {
@@ -159,8 +152,34 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         return true;
     }
 
+    /*
+     * I have an unacceptably crude state dump and restore. If you want to
+     * improve it, PRs welcome! But it's just like any other read-and-write-goop
+     * from-a-stream api really.
+     */
+    bool implementsState() const noexcept override { return true; }
+    bool stateSave(const clap_ostream *) noexcept override;
+    bool stateLoad(const clap_istream *) noexcept override;
+
+    /*
+     * process is the meat of the operation. It does obvious things like trigger
+     * voices but also handles all the polypohnic modulation and so on. Please see the
+     * comments in the cpp file to understand it and the helper functions we have
+     * delegated to.
+     */
+    clap_process_status process(const clap_process *process) noexcept override;
+    void handleInboundEvent(const clap_event_header_t *evt);
+    void pushParamsToVoices();
+    void handleNoteOn(int key, int noteid);
+    void handleNoteOff(int key);
+
   protected:
-    // These are implemented in clap-saw-demo-editor.
+    /*
+     * GUI IMPLEMENTATION with VSTGUI and thread safe queues
+     *
+     * Most importantly, the gui code is all implemented in clap-saw-demo-editor.cpp,
+     * including the functions here which are members of ClapSawDemo.
+     */
     bool implementsGui() const noexcept override { return true; }
     bool guiIsApiSupported(const char *api, bool isFloating) noexcept override;
 
