@@ -635,6 +635,77 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
     return true;
 }
 
+bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
+{
+    // Oh this is soooo bad. Please don't judge me. I'm just trying to get this
+    // together for launch day! If you are using this as an example for your plugins,
+    // you should write a less dumb serializer of course. On and I bet this might have
+    // a locale problem?
+    std::ostringstream oss;
+    oss << "STREAM-VERSION-1;";
+    for (const auto &[id, val] : paramToValue)
+    {
+        oss << id << "=" << *val << ";";
+    }
+    _DBGCOUT << oss.str() << std::endl;
+
+    auto st = oss.str();
+    auto c = st.c_str();
+    auto s = st.length() + 1; // write the null terminator
+    while (s>0)
+    {
+        auto r = stream->write(stream, c, s);
+        if (r < 0)
+            return false;
+        s -= r;
+        c += r;
+    }
+    return true;
+}
+
+
+bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
+{
+    // Again, see the comment above on 'this is terrible'
+    char buffer[4096];
+    char *bp = &(buffer[0]);
+    int64_t rd;
+    while ((rd = stream->read(stream, bp, 256)) > 0)
+    {
+        bp += rd;
+    }
+
+    auto dat = std::string(buffer);
+    _DBGCOUT << dat << std::endl;
+
+    std::vector<std::string> items;
+    size_t spos{0};
+    while ((spos = dat.find(";")) != std::string::npos)
+    {
+        auto l = dat.substr(0, spos);
+        dat = dat.substr(spos+1);
+        items.push_back(l);
+    }
+
+    if (items[0] != "STREAM-VERSION-1")
+    {
+        _DBGCOUT << "Invalid stream" << std::endl;
+        return false;
+    }
+    for (auto i : items)
+    {
+        auto epos = i.find( "=" );
+        if (epos == std::string::npos)
+            continue; // oh well
+        auto id = std::atoi(i.substr(0, epos).c_str());
+        auto val = std::atof(i.substr(epos+1).c_str());
+
+        *(paramToValue[(paramIds)id]) = val;
+    }
+
+    return true;
+}
+
 #if IS_LINUX
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {

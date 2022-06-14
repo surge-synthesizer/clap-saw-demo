@@ -2,8 +2,9 @@
 
 BP Todos before Tuesday EOD
 
-- state save and restore
+- That click and pop in bitwig sometimes? What's not initialized?
 - Document code carefully
+- The linux FD problem
 - Write this README
 - move to surge-synthesizer/clap-saw-demo
 - Let folks know

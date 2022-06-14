@@ -113,8 +113,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
                            uint32_t size) noexcept override;
 
     bool implementsState() const noexcept override { return true; }
-    bool stateSave(const clap_ostream *strea) noexcept override { return true; }
-    bool stateLoad(const clap_istream *strea) noexcept override { return true; }
+    bool stateSave(const clap_ostream *strea) noexcept override;
+    bool stateLoad(const clap_istream *strea) noexcept override;
 
     bool implementsVoiceInfo() const noexcept override { return true; }
     bool voiceInfoGet(clap_voice_info *info) noexcept override
