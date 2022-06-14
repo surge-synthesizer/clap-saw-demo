@@ -11,6 +11,7 @@
 #include "vstgui/lib/platform/platform_x11.h"
 #include "vstgui/lib/platform/linux/x11platform.h"
 #include <map>
+#include "linux-vstgui-adapter.h"
 #endif
 
 #if IS_WIN
@@ -19,97 +20,6 @@
 
 namespace sst::clap_saw_demo
 {
-#if IS_LINUX
-struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
-{
-    ClapSawDemo *plugin{nullptr};
-    ClapRunLoop(ClapSawDemo *p) : plugin(p) { _DBGCOUT << "Creating ClapRunLoop" << std::endl; }
-
-    std::multimap<int, VSTGUI::X11::IEventHandler *> eventHandlers;
-    bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
-    {
-        _DBGCOUT << _D(fd) << _D(handler) << std::endl;
-        auto res = plugin->registerPosixFd(fd);
-        eventHandlers.insert({fd, handler});
-        return res;
-    }
-    bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override
-    {
-        _DBGCOUT << _D(handler) << std::endl;
-        auto it = eventHandlers.begin();
-        while (it != eventHandlers.end())
-        {
-            const auto &[k, v] = *it;
-            if (v == handler)
-            {
-                _DBGCOUT << "Found an event handler to erase" << std::endl;
-                eventHandlers.erase(it);
-                return plugin->unregisterPosixFD(k);
-            }
-            it++;
-        }
-
-        return false;
-    }
-    void fireFd(int fd)
-    {
-        for (const auto &[k, v] : eventHandlers)
-        {
-            if (k == fd)
-                v->onEvent();
-        }
-    }
-
-    std::map<clap_id, VSTGUI::X11::ITimerHandler *> timerHandlers;
-    bool registerTimer(uint64_t interval, VSTGUI::X11::ITimerHandler *handler) override
-    {
-        _DBGCOUT << _D(interval) << _D(handler) << std::endl;
-        clap_id id;
-        auto res = plugin->registerTimer(interval, &id);
-        timerHandlers[id] = handler;
-        return res;
-    }
-    bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override
-    {
-        _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
-        auto it = timerHandlers.begin();
-        while (it != timerHandlers.end())
-        {
-            const auto &[k, v] = *it;
-            if (v == handler)
-            {
-                _DBGCOUT << "Found a timer handler to erase" << std::endl;
-                timerHandlers.erase(it);
-                return plugin->unregisterTimer(k);
-            }
-            it++;
-        }
-        return false;
-    }
-    void fireTimer(clap_id id)
-    {
-        for (const auto &[k, v] : timerHandlers)
-        {
-            if (k == id)
-                v->onTimer();
-        }
-    }
-};
-
-void ClapSawDemo::onTimer(clap_id timerId) noexcept
-{
-    auto rlp = VSTGUI::X11::RunLoop::get().get();
-    auto clp = reinterpret_cast<ClapRunLoop *>(rlp);
-    clp->fireTimer(timerId);
-}
-void ClapSawDemo::onPosixFd(int fd, int flags) noexcept
-{
-    auto rlp = VSTGUI::X11::RunLoop::get().get();
-    auto clp = reinterpret_cast<ClapRunLoop *>(rlp);
-    clp->fireFd(fd);
-}
-#endif
-
 bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 {
     if (isFloating)
@@ -142,19 +52,23 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 #if IS_WIN
         VSTGUI::init(GetModuleHandle(nullptr));
 #endif
-#if IS_LINUX
-        VSTGUI::init(nullptr);
-        VSTGUI::X11::RunLoop::init(VSTGUI::owned(new ClapRunLoop(this)));
-#endif
+
+
+#if 0
         static auto cleanup = VSTGUI::finally(
             []()
             {
                 _DBGCOUT << "Exiting VSTGUI" << std::endl;
                 VSTGUI::exit();
             });
+#endif
 
         everInit = true;
     }
+
+#if IS_LINUX
+    addLinuxVSTGUIPlugin(this);
+#endif
     editor = new ClapSawDemoEditor(toUiQ, fromUiQ, dataCopyForUI);
 
     for (const auto &[k, v] : paramToValue)
@@ -169,6 +83,10 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 }
 void ClapSawDemo::guiDestroy() noexcept
 {
+#if IS_LINUX
+    removeLinuxVSTGUIPlugin(this);
+#endif
+
     if (editor)
         delete editor;
     editor = nullptr;
