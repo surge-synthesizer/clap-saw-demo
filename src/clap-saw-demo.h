@@ -100,6 +100,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void pushParamsToVoices();
     void handleNoteOn(int key, int noteid);
     void handleNoteOff(int key);
+    float scaleTimeParamToSeconds(float param); // 0->1 linear input to 0 -> 5 exp output
 
     /*
      * Parameter implementation is obvious and straight forward
@@ -206,8 +207,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
     struct DataCopyForUI
     {
-        std::atomic<uint32_t> updateCount;
-        std::atomic<int> polyphony;
+        std::atomic<uint32_t> updateCount{0};
+        std::atomic<int> polyphony{0};
     } dataCopyForUI;
 
     typedef moodycamel::ReaderWriterQueue<ToUI, 4096> SynthToUI_Queue_t;

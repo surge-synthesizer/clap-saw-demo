@@ -71,14 +71,6 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 #endif
     editor = new ClapSawDemoEditor(toUiQ, fromUiQ, dataCopyForUI);
 
-    for (const auto &[k, v] : paramToValue)
-    {
-        auto r = ToUI();
-        r.type = ToUI::PARAM_VALUE;
-        r.id = k;
-        r.value = *v;
-        toUiQ.try_enqueue(r);
-    }
     return editor != nullptr;
 }
 void ClapSawDemo::guiDestroy() noexcept
@@ -104,6 +96,17 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     editor->getFrame()->open(window->win32);
 #endif
     editor->setupUI(window);
+
+    // The above starts the idle timer so lets pump our param values to the queue
+    for (const auto &[k, v] : paramToValue)
+    {
+        auto r = ToUI();
+        r.type = ToUI::PARAM_VALUE;
+        r.id = k;
+        r.value = *v;
+        toUiQ.try_enqueue(r);
+    }
+
     return true;
 }
 
@@ -324,13 +327,9 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     case tags::resonance:
     case tags::vca:
     case tags::env_a:
-    {
-        q.value = c->getValue();
-        break;
-    }
     case tags::env_r:
     {
-        q.value = c->getValue() * 10.0;
+        q.value = c->getValue();
         break;
     }
     case tags::unisp:
@@ -370,9 +369,6 @@ void ClapSawDemoEditor::idle()
                 {
                 case ClapSawDemo::pmUnisonSpread:
                     val = val / 100.0;
-                    break;
-                case ClapSawDemo::pmAmpRelease:
-                    val = val / 10.0;
                     break;
                 case ClapSawDemo::pmUnisonCount:
                     val = val / SawDemoVoice::max_uni;

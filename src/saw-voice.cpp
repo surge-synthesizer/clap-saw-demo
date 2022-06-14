@@ -186,12 +186,12 @@ void SawDemoVoice::StereoSimperSVF::setCoeff(float key, float res, float srInv)
 
 void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
 {
-    float v0[2]{L,R};
+    float vin[2]{L,R};
     float res[2]{0,0};
     for (int c=0; c<2; ++c)
     {
-        auto v3 = v0[c] - ic2eq[c];
-        v0[c] = a1 * v3 - ak * ic1eq[c];
+        auto v3 = vin[c] - ic2eq[c];
+        auto v0 = a1 * v3 - ak * ic1eq[c];
         auto v1 = a2 * v3 + a1 * ic1eq[c];
         auto v2 = a3 * v3 + a2 * ic1eq[c] + ic2eq[c];
 
@@ -209,16 +209,16 @@ void SawDemoVoice::StereoSimperSVF::step(float &L, float &R)
             res[c] = v1;
             break;
         case HP:
-            res[c] = v0[c];
+            res[c] = v0;
             break;
         case NOTCH:
-            res[c] = v2 + v0[c]; // low + high
+            res[c] = v2 + v0; // low + high
             break;
         case PEAK:
-            res[c] = v2 - v0[c]; // low - high;
+            res[c] = v2 - v0; // low - high;
             break;
         case ALL:
-            res[c] = v2 + v0[c] - k * v1;// low + high - k * band
+            res[c] = v2 + v0 - k * v1;// low + high - k * band
             break;
         }
     }

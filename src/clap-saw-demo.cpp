@@ -130,7 +130,7 @@ bool ClapSawDemo::paramsInfo(uint32_t paramIndex, clap_param_info *info) const n
         strncpy(info->name, "Amplitude Release (s)", CLAP_NAME_SIZE);
         strncpy(info->module, "Oscillator", CLAP_NAME_SIZE);
         info->min_value = 0;
-        info->max_value = 10;
+        info->max_value = 1;
         info->default_value = 0.2;
         break;
     case 4:
@@ -217,6 +217,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         return CLAP_PROCESS_CONTINUE;
 
     // Now handle any messages from the UI
+    bool uiAdjustedValues{false};
     ClapSawDemo::FromUI r;
     while (fromUiQ.try_dequeue(r))
     {
@@ -255,11 +256,14 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
             evt.value = r.value;
 
             ov->try_push(ov, &(evt.header));
+
+            uiAdjustedValues = true;
         }
         }
     }
 
-    pushParamsToVoices();
+    if (uiAdjustedValues)
+        pushParamsToVoices();
 
     float **out = process->audio_outputs[0].data32;
     auto chans = process->audio_outputs->channel_count;
@@ -502,12 +506,17 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
         if (v.state == SawDemoVoice::OFF)
         {
             v.unison = std::max(1, std::min(7, (int)unisonCount));
-            v.ampAttack = ampAttack;
-            v.ampRelease = ampRelease;
-            v.ampGate = ampIsGate > 0.5;
-            v.noteid = noteid;
-            v.preFilterVCA = preFilterVCA;
             v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
+            v.noteid = noteid;
+
+            v.uniSpread = unisonSpread;
+            v.cutoff = cutoff;
+            v.res = resonance;
+            v.preFilterVCA = preFilterVCA;
+            v.ampRelease = scaleTimeParamToSeconds(ampRelease);
+            v.ampAttack = scaleTimeParamToSeconds(ampAttack);
+            v.ampGate = ampIsGate > 0.5;
+
 
             // reset all the modulations
             v.cutoffMod = 0;
@@ -556,8 +565,8 @@ void ClapSawDemo::pushParamsToVoices()
             v.cutoff = cutoff;
             v.res = resonance;
             v.preFilterVCA = preFilterVCA;
-            v.ampRelease = ampRelease;
-            v.ampAttack = ampAttack;
+            v.ampRelease = scaleTimeParamToSeconds(ampRelease);
+            v.ampAttack = scaleTimeParamToSeconds(ampAttack);
             v.ampGate = ampIsGate > 0.5;
 
             v.recalcPitch();
@@ -585,7 +594,7 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
         break;
     case pmAmpRelease:
     case pmAmpAttack:
-        sValue = n2s(value) + " s";
+        sValue = n2s(scaleTimeParamToSeconds(value)) + " s";
         break;
     case pmUnisonCount:
         sValue = n2s(static_cast<int>(value)) + " voices";
@@ -633,6 +642,14 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
 
     strncpy(display, sValue.c_str(), CLAP_NAME_SIZE);
     return true;
+}
+
+float ClapSawDemo::scaleTimeParamToSeconds(float param)
+{
+    auto scaleTime = std::clamp((param - 2.0 / 3.0) * 6, -100.0, 2.0);
+    auto res = powf(2.f, scaleTime);
+    return res;
+
 }
 
 bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
@@ -703,6 +720,7 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
         *(paramToValue[(paramIds)id]) = val;
     }
 
+    pushParamsToVoices();
     return true;
 }
 
