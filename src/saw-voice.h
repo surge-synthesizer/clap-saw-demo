@@ -87,7 +87,7 @@ struct SawDemoVoice
 
     float cutoffMod{0.0}, resMod{0.0}, spreadMod{0.0}, preFilterVCAMod{0.0};
 
-    float pitchMod{0.f}, neVolumeAdj{0.f};
+    float pitchMod{0.f}, pitchBendWheel{0.f}, neVolumeAdj{0.f};
 };
 } // namespace sst::clap_saw_demo
 #endif

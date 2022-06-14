@@ -9,6 +9,8 @@
 
 namespace sst::clap_saw_demo
 {
+struct ClapSawDemoBackground;
+
 struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IControlListener
 {
     ClapSawDemo::SynthToUI_Queue_t &inbound;
@@ -28,7 +30,12 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
         env_a = 100,
         env_r,
         unict,
-        unisp
+        unisp,
+
+        vca,
+        cutoff,
+        resonance
+
     };
 
     void setupUI(const clap_window_t *);
@@ -37,11 +44,11 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     void idle();
     void resize();
 
-    VSTGUI::CVSTGUITimer *idleTimer;
+    VSTGUI::CVSTGUITimer *idleTimer{nullptr};
 
   private:
     uint32_t lastDataUpdate{0};
-    VSTGUI::CView *backgroundRender;
+    ClapSawDemoBackground *backgroundRender{nullptr};
     // These are all weak references owned by the frame
     VSTGUI::CTextLabel *topLabel{nullptr}, *bottomLabel{nullptr}, *statusLabel{nullptr};
 

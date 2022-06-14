@@ -2,8 +2,6 @@
 
 BP Todos before Tuesday EOD
 
-- UI basics done
-- MIDI pitch bend support
 - state save and restore
 - Document code carefully
 - Write this README

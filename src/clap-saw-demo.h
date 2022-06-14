@@ -98,6 +98,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     clap_process_status process(const clap_process *process) noexcept override;
     void handleInboundEvent(const clap_event_header_t *evt);
     void pushParamsToVoices();
+    void handleNoteOn(int key, int noteid);
+    void handleNoteOff(int key);
 
     /*
      * Parameter implementation is obvious and straight forward
@@ -168,7 +170,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 #endif
 
   public:
-    static constexpr uint32_t GUI_DEFAULT_W = 400, GUI_DEFAULT_H = 600;
+    static constexpr uint32_t GUI_DEFAULT_W = 330, GUI_DEFAULT_H = 530;
 
   public:
     /*

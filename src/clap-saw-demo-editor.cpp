@@ -222,10 +222,30 @@ struct ClapSawDemoBackground : public VSTGUI::CView
         dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
         dc->drawRect(t, VSTGUI::kDrawFilled);
 
-        auto b = VSTGUI::CRect(VSTGUI::CPoint(0, getHeight() - 20), VSTGUI::CPoint(getWidth(), 20));
+        auto b = VSTGUI::CRect(VSTGUI::CPoint(0, getHeight() - 40), VSTGUI::CPoint(getWidth(), 40));
         dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
         dc->drawRect(b, VSTGUI::kDrawFilled);
+
+        if (polyCount == 0)
+        {
+            dc->setFrameColor(VSTGUI::CColor(0x80, 0x80, 0xA0));
+            dc->setLineWidth(1);
+        }
+        else
+        {
+            auto add = std::clamp(polyCount * 5, 0, 0x40);
+            dc->setFrameColor(VSTGUI::CColor(0xAF + add, 0xAF + add, 0xAF + add));
+            dc->setLineWidth(2 + polyCount / 5.0);
+        }
+
+        dc->drawLine( VSTGUI::CPoint( 100, 90 ), VSTGUI::CPoint(162, 90));
+        dc->drawLine( VSTGUI::CPoint( 162, 90 ), VSTGUI::CPoint(162, 150));
+        dc->drawLine( VSTGUI::CPoint( 100, 400 ), VSTGUI::CPoint(162, 400));
+        dc->drawLine( VSTGUI::CPoint( 162, 400 ), VSTGUI::CPoint(162, 340));
+        dc->drawLine( VSTGUI::CPoint( 180, 235 ), VSTGUI::CPoint(225, 235));
     }
+
+    int polyCount{0};
 };
 
 ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
@@ -256,23 +276,34 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
     frame->addView(topLabel);
 
     l = new VSTGUI::CTextLabel(
-        VSTGUI::CRect(VSTGUI::CPoint(0, 40), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "status");
+        VSTGUI::CRect(VSTGUI::CPoint(0, 40), VSTGUI::CPoint(getFrame()->getWidth(), 20)), "poly=0");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFont);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     statusLabel = l;
     frame->addView(statusLabel);
 
-    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - 20),
+    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - 40),
                                              VSTGUI::CPoint(getFrame()->getWidth(), 20)),
-                               "https://some-url-soon");
+                               "https://github.com/surge-synthesizer/clap-saw-demo");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontSmaller);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     bottomLabel = l;
     frame->addView(bottomLabel);
 
-    auto mkSlider = [this](int x, int y, int tag)
+    auto sl = std::string( "MIT License; CLAP v.") + std::to_string(CLAP_VERSION_MAJOR)
+               + "." + std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION);
+    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - 20),
+                                             VSTGUI::CPoint(getFrame()->getWidth(), 20)),
+                               sl.c_str());
+    l->setTransparency(true);
+    l->setFont(VSTGUI::kNormalFontSmaller);
+    l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
+    bottomLabel = l;
+    frame->addView(bottomLabel);
+
+    auto mkSliderWithLabel = [this](int x, int y, int tag, const std::string &label)
     {
         auto q = new VSTGUI::CSlider(VSTGUI::CRect(VSTGUI::CPoint(x, y), VSTGUI::CPoint(25, 150)),
                                      this, tag, 0, 150, nullptr, nullptr);
@@ -282,20 +313,36 @@ void ClapSawDemoEditor::setupUI(const clap_window_t *w)
                         VSTGUI::CSlider::kDrawBack);
         q->setStyle(VSTGUI::CSlider::kVertical | VSTGUI::CSlider::kBottom);
         frame->addView(q);
+
+        auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(x-10, y + 155), VSTGUI::CPoint(45, 15)));
+        l->setText( label.c_str() );
+
+        frame->addView(l);
         return q;
     };
 
-    oscUnison = mkSlider(10, 65, tags::unict);
+    auto oscRow = 70, aegRow = 70 + 150 + 80, endRow = 160;
+    oscUnison = mkSliderWithLabel(10, oscRow, tags::unict, "Uni Ct");
     paramIdToCControl[ClapSawDemo::pmUnisonCount] = oscUnison;
 
-    oscSpread = mkSlider(40, 65, tags::unisp);
+    oscSpread = mkSliderWithLabel(70, oscRow, tags::unisp, "Spread");
     paramIdToCControl[ClapSawDemo::pmUnisonSpread] = oscSpread;
 
-    ampAttack = mkSlider(70, 65, tags::env_a);
+    ampAttack = mkSliderWithLabel(10, aegRow, tags::env_a, "Attack");
     paramIdToCControl[ClapSawDemo::pmAmpAttack] = ampAttack;
 
-    ampRelease = mkSlider(100, 65, tags::env_r);
+    ampRelease = mkSliderWithLabel(70, aegRow, tags::env_r, "Release");
     paramIdToCControl[ClapSawDemo::pmAmpRelease] = ampRelease;
+
+    preFilterVCA = mkSliderWithLabel(150, endRow, tags::vca, "VCA" );
+    paramIdToCControl[ClapSawDemo::pmPreFilterVCA] = preFilterVCA;
+
+    filtCutoff = mkSliderWithLabel(230, endRow, tags::cutoff, "Cutoff" );
+    paramIdToCControl[ClapSawDemo::pmCutoff] = filtCutoff;
+
+    filtRes = mkSliderWithLabel(290, endRow, tags::resonance, "Res" );
+    paramIdToCControl[ClapSawDemo::pmResonance] = filtRes;
+
 
     idleTimer = new VSTGUI::CVSTGUITimer([this](VSTGUI::CVSTGUITimer *) { this->idle(); }, 33);
     idleTimer->remember();
@@ -325,7 +372,7 @@ void ClapSawDemoEditor::resize()
 
 uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
 {
-    switch (tag)
+    switch ((ClapSawDemoEditor::tags)tag)
     {
     case tags::env_r:
         return ClapSawDemo::pmAmpRelease;
@@ -335,6 +382,12 @@ uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
         return ClapSawDemo::pmUnisonSpread;
     case tags::env_a:
         return ClapSawDemo::pmAmpAttack;
+    case tags::vca:
+        return ClapSawDemo::pmPreFilterVCA;
+    case tags::cutoff:
+        return ClapSawDemo::pmCutoff;
+    case tags::resonance:
+        return ClapSawDemo::pmResonance;
     }
     assert(false);
     return 0;
@@ -350,10 +403,16 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     switch (t)
     {
         // 0..1
+    case tags::resonance:
+    case tags::vca:
     case tags::env_a:
-    case tags::env_r:
     {
         q.value = c->getValue();
+        break;
+    }
+    case tags::env_r:
+    {
+        q.value = c->getValue() * 10.0;
         break;
     }
     case tags::unisp:
@@ -364,6 +423,11 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     case tags::unict:
     {
         q.value = c->getValue() * SawDemoVoice::max_uni;
+        break;
+    }
+    case tags::cutoff:
+    {
+        q.value = c->getValue() * 126 + 1;
     }
     }
     if (send)
@@ -389,8 +453,14 @@ void ClapSawDemoEditor::idle()
                 case ClapSawDemo::pmUnisonSpread:
                     val = val / 100.0;
                     break;
+                case ClapSawDemo::pmAmpRelease:
+                    val = val / 10.0;
+                    break;
                 case ClapSawDemo::pmUnisonCount:
                     val = val / SawDemoVoice::max_uni;
+                    break;
+                case ClapSawDemo::pmCutoff:
+                    val = ( val - 1 ) / 126.0;
                     break;
 
                 default:
@@ -406,9 +476,11 @@ void ClapSawDemoEditor::idle()
     {
         lastDataUpdate = synthData.updateCount;
 
-        auto sl = std::string("status : poly=") + std::to_string(synthData.polyphony);
+        auto sl = std::string("poly=") + std::to_string(synthData.polyphony);
         statusLabel->setText(sl.c_str());
         statusLabel->invalid();
+        backgroundRender->polyCount = synthData.polyphony;
+        backgroundRender->invalid();
     }
 }
 void ClapSawDemoEditor::beginEdit(int32_t index)

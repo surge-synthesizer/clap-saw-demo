@@ -18,7 +18,7 @@ float pival =
 
 void SawDemoVoice::recalcPitch()
 {
-    baseFreq = 440.0 * pow(2.0, ((key + pitchMod) - 69.0) / 12.0);
+    baseFreq = 440.0 * pow(2.0, ((key + pitchMod + pitchBendWheel) - 69.0) / 12.0);
 
     for (int i = 0; i < unison; ++i)
     {

@@ -345,61 +345,50 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 {
     switch (evt->type)
     {
-        // case CLAP_EVENT_MIDI:
+    case CLAP_EVENT_MIDI:
+    {
+        auto mevt = reinterpret_cast<const clap_event_midi *>(evt);
+        auto msg = mevt->data[0] & 0xF0;
+        switch(msg)
+        {
+        case 0x90:
+        {
+            // Hosts should prefer CLAP_NOTE events but if they dont
+            handleNoteOn(mevt->data[1], -1);
+            break;
+        }
+        case 0x80:
+        {
+            // Hosts should prefer CLAP_NOTE events but if they dont
+            handleNoteOff(mevt->data[1]);
+            break;
+        }
+        case 0xE0:
+        {
+            // pitch bend
+            auto bv = (mevt->data[1] + mevt->data[2] * 128 - 8192) / 8192.0;
+
+            for (auto &v : voices)
+            {
+                v.pitchBendWheel = bv * 2; // just harcode a pitch bend depth of 2
+                v.recalcPitch();
+            }
+
+            break;
+        }
+        }
+        break;
+    }
     case CLAP_EVENT_NOTE_ON:
     {
         auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-        auto n = nevt->key;
-
-        for (auto &v : voices)
-        {
-            if (v.state == SawDemoVoice::OFF)
-            {
-                v.unison = std::max(1, std::min(7, (int)unisonCount));
-                v.ampAttack = ampAttack;
-                v.ampRelease = ampRelease;
-                v.ampGate = ampIsGate > 0.5;
-                v.start(n);
-                v.noteid = nevt->note_id;
-                v.preFilterVCA = preFilterVCA;
-                v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
-
-                // reset all the modulations
-                v.cutoffMod = 0;
-                v.resMod = 0;
-                v.preFilterVCAMod = 0;
-                v.spreadMod = 0;
-                v.neVolumeAdj = 0;
-                v.pitchMod = 0;
-                break;
-            }
-        }
-
-        dataCopyForUI.updateCount++;
-        dataCopyForUI.polyphony++;
-        auto r = ToUI();
-        r.type = ToUI::MIDI_NOTE_ON;
-        r.id = (uint32_t)n;
-        toUiQ.try_enqueue(r);
+        handleNoteOn(nevt->key, nevt->note_id);
     }
     break;
     case CLAP_EVENT_NOTE_OFF:
     {
         auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-        auto n = nevt->key;
-
-        for (auto &v : voices)
-        {
-            if (v.state != SawDemoVoice::OFF && v.key == n)
-            {
-                v.release();
-            }
-        }
-
-        auto r = ToUI();
-        r.type = ToUI::MIDI_NOTE_OFF;
-        r.id = (uint32_t)n;
-        toUiQ.try_enqueue(r);
+        handleNoteOff(nevt->key);
     }
     break;
     case CLAP_EVENT_PARAM_VALUE:
@@ -506,6 +495,57 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     }
 }
 
+void ClapSawDemo::handleNoteOn(int key, int noteid)
+{
+    for (auto &v : voices)
+    {
+        if (v.state == SawDemoVoice::OFF)
+        {
+            v.unison = std::max(1, std::min(7, (int)unisonCount));
+            v.ampAttack = ampAttack;
+            v.ampRelease = ampRelease;
+            v.ampGate = ampIsGate > 0.5;
+            v.noteid = noteid;
+            v.preFilterVCA = preFilterVCA;
+            v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
+
+            // reset all the modulations
+            v.cutoffMod = 0;
+            v.resMod = 0;
+            v.preFilterVCAMod = 0;
+            v.spreadMod = 0;
+            v.neVolumeAdj = 0;
+            v.pitchMod = 0;
+
+            v.start(key);
+            break;
+        }
+    }
+
+    dataCopyForUI.updateCount++;
+    dataCopyForUI.polyphony++;
+    auto r = ToUI();
+    r.type = ToUI::MIDI_NOTE_ON;
+    r.id = (uint32_t)key;
+    toUiQ.try_enqueue(r);
+}
+
+void ClapSawDemo::handleNoteOff(int n)
+{
+    for (auto &v : voices)
+    {
+        if (v.state != SawDemoVoice::OFF && v.key == n)
+        {
+            v.release();
+        }
+    }
+
+    auto r = ToUI();
+    r.type = ToUI::MIDI_NOTE_OFF;
+    r.id = (uint32_t)n;
+    toUiQ.try_enqueue(r);
+}
+
 void ClapSawDemo::pushParamsToVoices()
 {
     for (auto &v : voices)
@@ -515,6 +555,12 @@ void ClapSawDemo::pushParamsToVoices()
             v.uniSpread = unisonSpread;
             v.cutoff = cutoff;
             v.res = resonance;
+            v.preFilterVCA = preFilterVCA;
+            v.ampRelease = ampRelease;
+            v.ampAttack = ampAttack;
+            v.ampGate = ampIsGate > 0.5;
+
+            v.recalcPitch();
             v.recalcFilter();
         }
     }
