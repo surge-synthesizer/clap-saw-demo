@@ -39,6 +39,8 @@ struct SawDemoVoice
 {
     static constexpr int max_uni = 7;
 
+    int portid;  // clap note port index
+    int channel; // midi channel
     int key;     // The midi key which triggered me
     int note_id; // and the note_id delivered by the host (used for note expressions)
 

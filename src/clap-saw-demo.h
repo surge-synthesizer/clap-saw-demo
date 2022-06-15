@@ -170,8 +170,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     clap_process_status process(const clap_process *process) noexcept override;
     void handleInboundEvent(const clap_event_header_t *evt);
     void pushParamsToVoices();
-    void handleNoteOn(int key, int noteid);
-    void handleNoteOff(int key);
+    void handleNoteOn(int port_index, int channel, int key, int noteid);
+    void handleNoteOff(int port_index, int channel, int key);
 
   protected:
     /*

@@ -266,21 +266,34 @@ bool ClapSawDemo::notePortsInfo(uint32_t index, bool isInput,
 }
 
 /*
- * Process is a simple algo
+ * The process function is the heart of any CLAP. It reads inbound events,
+ * generates audio if appropriate, writes outbound events, and informs the host
+ * to continue operating.
  *
- * 1. Read input events and update voice state and parameter state
- * 2. For each running voice, merge it onto the output
+ * In the ClapSawDemo, our process loop has 3 basic stages
  *
- * In this implementation I read all the parameters at the top of the block
- * even though they have a time parameter which would let me interweave them with
- * my DSP in this implementation.
+ * 1. See if the UI has sent us any events on the thread-safe UI Queue (
+ *    see the discussion in the clap header file for this structure), apply them
+ *    to my internal state, and generate CLAP changed messages
+ *
+ * 2. Iterate over samples rendering the voices, and if an inbounc event is coincident
+ *    with a sample, process that event for note on, modulation, parameter automation, and so on
+ *
+ * 3. Detect any voices which have terminated in the block (their state has become 'NEWLY_OFF'),
+ *    update them to 'OFF' and send a CLAP NOTE_END event to terminate any polyphonic modulators.
  */
 clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 {
+    // If I have no outputs, do nothing
     if (process->audio_outputs_count <= 0)
         return CLAP_PROCESS_CONTINUE;
 
-    // Now handle any messages from the UI
+    /*
+     * Stage 1:
+     *
+     * The UI can send us gesture begin/end events which translate in to a
+     * `clap_event_param_getsture` or value adjustments.
+     */
     bool uiAdjustedValues{false};
     ClapSawDemo::FromUI r;
     while (fromUiQ.try_dequeue(r))
@@ -329,12 +342,21 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     if (uiAdjustedValues)
         pushParamsToVoices();
 
+    /*
+     * Stage 2: Create the AUDIO output and process events
+     *
+     * CLAP has a single inbound event loop where every event is time stamped with
+     * a sample id. This means the process loop can easily interleave note and parameter
+     * and other events with audio generation. Here we do everything completely sample accurately
+     * by maitaining a pointer to the 'nextEvent' which we check at every sample.
+     */
     float **out = process->audio_outputs[0].data32;
     auto chans = process->audio_outputs->channel_count;
 
     auto ev = process->in_events;
     auto sz = ev->size(ev);
 
+    // This pointer is the sentinel to our next event which we advance once an event is processed
     const clap_event_header_t *nextEvent{nullptr};
     uint32_t nextEventIndex{0};
     if (sz != 0)
@@ -344,9 +366,12 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
     for (int i = 0; i < process->frames_count; ++i)
     {
-        // Do I have an event to process
+        // Do I have an event to process. Note that multiple events
+        // can occur on the same sample, hence 'while' not 'if'
         while (nextEvent && nextEvent->time == i)
         {
+            // handleInboundEvent is a separate function which adjusts the state based
+            // on event type. We segregate it for clarity but you really should read it!
             handleInboundEvent(nextEvent);
             nextEventIndex++;
             if (nextEventIndex >= sz)
@@ -355,6 +380,8 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
                 nextEvent = ev->get(ev, nextEventIndex);
         }
 
+        // This is a simple accumulator of output across our active voices.
+        // See saw-voice.h for information on the individual voice.
         for (int ch = 0; ch < chans; ++ch)
         {
             out[ch][i] = 0.f;
@@ -377,6 +404,13 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
     }
 
+    /*
+     * Stage 3 is to inform the host of our terminated voices.
+     *
+     * This allows hosts which support polyphonic modulation to terminate those
+     * modulators, and it is also the reason we have the NEWLY_OFF state in addition
+     * to the OFF state.
+     */
     for (auto &v : voices)
     {
         if (v.state == SawDemoVoice::NEWLY_OFF)
@@ -391,8 +425,8 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
             evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
             evt.header.flags = 0;
 
-            evt.port_index = 0;
-            evt.channel = 0; // FIXME
+            evt.port_index = v.portid;
+            evt.channel = v.channel;
             evt.key = v.key;
             evt.note_id = v.note_id;
             evt.velocity = 0.0;
@@ -409,26 +443,42 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     return CLAP_PROCESS_CONTINUE;
 }
 
+/*
+ * handleInboundEvent provides the core event mechanism including
+ * voice activation and deactivation, parameter modulation, note expression,
+ * and so on.
+ *
+ * It reads, unsurprisingly, as a simple switch over type with reactions.
+ */
 void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 {
+    if (evt->space_id != CLAP_CORE_EVENT_SPACE_ID)
+        return;
+
     switch (evt->type)
     {
     case CLAP_EVENT_MIDI:
     {
+        /*
+         * We advertise both CLAP_DIALECT_MIDI and CLAP_DIALECT_CLAP_NOTE so we do need
+         * to handle midi events. CLAP just gives us MIDI 1 (or 2 if you want, but I didn't core
+         * that) streams do do with as you wish. The CLAP_MIDI_EVENT here does the obvious thing.
+         */
         auto mevt = reinterpret_cast<const clap_event_midi *>(evt);
         auto msg = mevt->data[0] & 0xF0;
+        auto chan = mevt->data[0] & 0x0F;
         switch (msg)
         {
         case 0x90:
         {
             // Hosts should prefer CLAP_NOTE events but if they dont
-            handleNoteOn(mevt->data[1], -1);
+            handleNoteOn(mevt->port_index, chan, mevt->data[1], -1);
             break;
         }
         case 0x80:
         {
             // Hosts should prefer CLAP_NOTE events but if they dont
-            handleNoteOff(mevt->data[1]);
+            handleNoteOff(mevt->port_index, chan, mevt->data[1]);
             break;
         }
         case 0xE0:
@@ -447,23 +497,36 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         }
         break;
     }
+    /*
+     * CLAP_EVENT_NOTE_ON and OFF simpley deliver the event to the note creators below,
+     * which find (probably) and activate a spare or playing voice. Our 'voice stealing'
+     * algorithm here is 'just don't play a note 65 if 64 are ringing. Remember this is an
+     * example synth!
+     */
     case CLAP_EVENT_NOTE_ON:
     {
         auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-        handleNoteOn(nevt->key, nevt->note_id);
+        handleNoteOn(nevt->port_index, nevt->channel, nevt->key, nevt->note_id);
     }
     break;
     case CLAP_EVENT_NOTE_OFF:
     {
         auto nevt = reinterpret_cast<const clap_event_note *>(evt);
-        handleNoteOff(nevt->key);
+        handleNoteOff(nevt->port_index, nevt->channel, nevt->key);
     }
     break;
+    /*
+     * CLAP_EVENT_PARAM_VALUE sets a value. What happens if you change a parameter
+     * outside a modulation context. We simply update our engine value and, if an editor
+     * is attached, send an editor message.
+     */
     case CLAP_EVENT_PARAM_VALUE:
     {
         auto v = reinterpret_cast<const clap_event_param_value *>(evt);
 
         *paramToValue[v->param_id] = v->value;
+        pushParamsToVoices();
+
         if (editor)
         {
             auto r = ToUI();
@@ -473,12 +536,18 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 
             toUiQ.try_enqueue(r);
         }
-        pushParamsToVoices();
     }
+    /*
+     * CLAP_EVENT_PARAM_MOD provides both monophonic and polyphonic modulation.
+     * We do this by seeing which parameter is modulated then adjusting the
+     * side-by-side modulation values in a voice.
+     */
     case CLAP_EVENT_PARAM_MOD:
     {
         auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
         auto pd = pevt->param_id;
+
+        // This little lambda updates a modulation slot in a voice properly
         auto applyToVoice = [&pevt](auto &v)
         {
             auto pd = pevt->param_id;
@@ -516,6 +585,12 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
             }
         };
 
+        /*
+         * The real meat is here. If we have a note id, find the note and modulate it.
+         * Otherwise if we have a key (we are doing "PCK modulation" rather than "noteid
+         * modulation") find a voice and update that. Otherwise it is a monophonic modulation
+         * so update every voice.
+         */
         if (pevt->note_id >= 0)
         {
             // poly by note_id
@@ -527,12 +602,13 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
                 }
             }
         }
-        else if (pevt->key >= 0)
+        else if (pevt->key >= 0 && pevt->channel >= 0 && pevt->port_index >= 0)
         {
             // poly by PCK
             for (auto &v : voices)
             {
-                if (v.key == pevt->key)
+                if (v.key == pevt->key && v.channel == pevt->channel &&
+                    v.portid == pevt->port_index)
                 {
                     applyToVoice(v);
                 }
@@ -548,13 +624,17 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         }
     }
     break;
+    /*
+     * Note expression ahdnling is similar to polymod. Traverse the voices - in note expression
+     * indexed by channel / key / port - and adjust the modulation slot in each.
+     */
     case CLAP_EVENT_NOTE_EXPRESSION:
     {
         auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
         for (auto &v : voices)
         {
             // Note expressions work on key not note id
-            if (v.key == pevt->key)
+            if (v.key == pevt->key && v.channel == pevt->channel && v.portid == pevt->port_index)
             {
                 switch (pevt->expression_id)
                 {
@@ -574,7 +654,11 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     }
 }
 
-void ClapSawDemo::handleNoteOn(int key, int noteid)
+/*
+ * The note on, note off, and push params to voices implementations are, basically, completely
+ * uninteresting.
+ */
+void ClapSawDemo::handleNoteOn(int port_index, int channel, int key, int noteid)
 {
     for (auto &v : voices)
     {
@@ -583,6 +667,8 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
             v.unison = std::max(1, std::min(7, (int)unisonCount));
             v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
             v.note_id = noteid;
+            v.portid = port_index;
+            v.channel = channel;
 
             v.uniSpread = unisonSpread;
             v.oscDetune = oscDetune;
@@ -619,11 +705,12 @@ void ClapSawDemo::handleNoteOn(int key, int noteid)
     }
 }
 
-void ClapSawDemo::handleNoteOff(int n)
+void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
 {
     for (auto &v : voices)
     {
-        if (v.state != SawDemoVoice::OFF && v.key == n)
+        if (v.state != SawDemoVoice::OFF && v.key == n && v.portid == port_index &&
+            v.channel == channel)
         {
             v.release();
         }
