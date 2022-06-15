@@ -339,6 +339,22 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
     }
 
+    // Similarly we need to push values to a UI on startup
+    if (refreshUIValues && editor)
+    {
+        _DBGCOUT << "Pushing a refresh of UI values to the editor" << std::endl;
+        refreshUIValues = false;
+
+        for (const auto &[k, v] : paramToValue)
+        {
+            auto r = ToUI();
+            r.type = ToUI::PARAM_VALUE;
+            r.id = k;
+            r.value = *v;
+            toUiQ.try_enqueue(r);
+        }
+    }
+
     if (uiAdjustedValues)
         pushParamsToVoices();
 

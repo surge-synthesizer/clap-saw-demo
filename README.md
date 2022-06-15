@@ -59,7 +59,7 @@ of the synth, and you may also get an FD leak at exit.
 We know how to fix this, just we ran out of time. Stay tuned! (Or if you want to chip in and fix it
 hit us up on github. The basic problem is outlined in the linux-... files)
 
-## BaconPaul's pre-launch todos
+## BaconPaul's outstanding todos
 
-1. finish document clap-saw-demo and clap-saw-demo-editor and the linux bit
+1. Document and maybe fix the linux stuff.
 2. Set up an azure pipeline and build asset maybe? 

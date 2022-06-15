@@ -175,10 +175,34 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
   protected:
     /*
-     * GUI IMPLEMENTATION with VSTGUI and thread safe queues
+     * OK so now you see how the engine works. Great! But how does the GUI work?
+     * CLAP is based on extensions and the core gui extension has a simple
+     * protocol for sizing, for supported APIs, and for reparenting a component
+     * with a platform-native window. Here we are going to use VSTGUI to create
+     * a small UI which attaches to our CLAP. That's the API below.
      *
-     * Most importantly, the gui code is all implemented in clap-saw-demo-editor.cpp,
-     * including the functions here which are members of ClapSawDemo.
+     * But that UI runs in another thread, and all the CLAP events are handled
+     * in process, so we also need to think about inter-thread communication.
+     * To do that we have three core data structures and one pointer
+     *
+     * - A pointer to an editor object (here a concrete editor, but a more advanced
+     *   implementation could make that a proxy or a bool), which we test for null
+     *   when the editor is open
+     * - A lock-free queue from the engine to the UI for things like parameter
+     *   updates. This queue is written in `ClapSawDemo::process` if editor is
+     *   non-null and is read in the `::idle` loop of the editor on the UI thread
+     * - A lock-free queue from the UI to the engine for things like begin and end
+     *   gestures and value changes. This is written on the UI thread and read in
+     *   stage 1 of `CLapSawDemo::process` go update engine parameters and send parameter
+     *   change events to the host from the processing thread.
+     * - A data structure which contains std::atomic values and where the editor keeps
+     *   an in-memory const& to it. ::process updates a counter and the idle loop looks
+     *   for counter changes. This allows values to propagate without events, and we use
+     *   it here for polyphony count.
+     *
+     * These functions are members of ClapSawDemo but we impelment them in
+     * `clap-saw-demo-editor.cpp` along with the VSTGUI implementation. You can consult the
+     * extensive comments in the clap gui extension for semantics and rules.
      */
     bool implementsGui() const noexcept override { return true; }
     bool guiIsApiSupported(const char *api, bool isFloating) noexcept override;
@@ -197,7 +221,15 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         return true;
     }
 
+    // Setting this atomic to true will force a push of all current engine
+    // params to ui using the queue mechanism
+    std::atomic<bool> refreshUIValues{false};
+
 #if IS_LINUX
+    // PLEASE see the README comments on Linux. We are working on making this more rational
+    // but the VSTGUI global plus runnign a bit out of time has this implementation right now
+    // which can leak or crash in some circumstances when you delete a plugin. Expect updates
+    // soon enough.
   public:
     bool implementsTimerSupport() const noexcept override
     {
@@ -223,12 +255,9 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
   public:
     static constexpr uint32_t GUI_DEFAULT_W = 390, GUI_DEFAULT_H = 530;
 
-  public:
     /*
-     * We use three basic data structures to communicate between the UI and the
-     * DSP code. Two queues of data for parameter updates and notes one structure
-     * full of atomics which we read in our idle loop for repaints with an atomic
-     * update count.
+     * These are the core data structures we use for the communication
+     * outlined above.
      */
     struct ToUI
     {
