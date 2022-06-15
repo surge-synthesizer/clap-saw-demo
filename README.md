@@ -53,16 +53,6 @@ and also, wouldn't you rather work on surge or shortcircuit? Also please keep a 
 CLAP works great on linux! We have done loads of our primary CLAP development there.
 But VSTGUI on linux is a bit trickier. 
 
-VSTGUI has a global timer and global xcb handle which are stored on a dll-static. 
-CLAP has extensions per plugin to map to posixFd and timer callbacks from the host.
-
-So what this means today, at this version, is
-
-1: A *single plugin* session will look like an FD and Timer leak on exit since 
-   i make no effort to cleanup (which is crash prone if you do it wrong)
-2. A *multi plugin* session will have the UI stop working when you delete the
-   *first* plugin which showed its UI
-
-This is obviously not OK, and we see how to fix it (basically juggling that global subscription)
-but haven't done it yet. If you want to help get in touch, but we will work on it over the
-next week.
+Anyway I think I finally got it working, but I need to write documentation and check it again.
+As of this commit, on Linux it works in BWS43b6 with multiple plugisn in process starting and stopping
+UIs and it doesn't leak timers or FDs. But some work to do on documenting and reviewing it.

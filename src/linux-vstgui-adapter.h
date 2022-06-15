@@ -8,7 +8,9 @@
 namespace sst::clap_saw_demo
 {
 struct ClapSawDemo;
+struct ClapSawDemoEditor;
 void addLinuxVSTGUIPlugin(ClapSawDemo *);
 void removeLinuxVSTGUIPlugin(ClapSawDemo *);
+void exitLinuxVSTGUI();
 } // namespace sst::clap_saw_demo
 #endif // CLAP_SAW_DEMO_LINUX_VSTGUI_ADAPTER_H

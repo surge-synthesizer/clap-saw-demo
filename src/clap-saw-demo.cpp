@@ -35,7 +35,13 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     paramToValue[pmPreFilterVCA] = &preFilterVCA;
     paramToValue[pmFilterMode] = &filterMode;
 }
-ClapSawDemo::~ClapSawDemo() = default;
+ClapSawDemo::~ClapSawDemo()
+{
+    // I *think* this is a bitwig bug that they won't call guiDestroy if destroying a plugin
+    // with an open window but
+    if (editor)
+        guiDestroy();
+}
 
 const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, nullptr};
 clap_plugin_descriptor ClapSawDemo::desc = {CLAP_VERSION,
@@ -844,9 +850,14 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 #if IS_LINUX
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
-    return _host.timerSupportRegister(interv, id);
+    auto res = _host.timerSupportRegister(interv, id);
+    _DBGCOUT << "-----------------++++>>>>>>>  REGISTER " << *id << std::endl;
+    return res;
 }
-bool ClapSawDemo::unregisterTimer(clap_id id) { return _host.timerSupportUnregister(id); }
+bool ClapSawDemo::unregisterTimer(clap_id id) {
+    _DBGCOUT << "-----------------++++<<<<<<  UNREGISTER " << id << std::endl;
+    return _host.timerSupportUnregister(id);
+}
 bool ClapSawDemo::registerPosixFd(int fd)
 {
     return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE |
