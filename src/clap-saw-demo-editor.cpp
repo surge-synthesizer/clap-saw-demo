@@ -20,6 +20,12 @@
 
 namespace sst::clap_saw_demo
 {
+/*
+ * Part one of this implementation is the plugin adapters which allow a GUI to attach.
+ * These are the ClapSawDemo methods. First up: Which windowing API do we support.
+ * Pretty obviously, mac supports cocoa, windows supports win32, and linux supports
+ * X11.
+ */
 bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 {
     if (isFloating)
@@ -41,6 +47,21 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 
     return false;
 }
+
+/*
+ * GUICreate gets called when the host requests the plugin create its editor with
+ * a given API. We ignore the API and isFloating here, because we handled them
+ * above and assuem our host follows the protocol that it only calls us with
+ * values which are supported.
+ *
+ * The important thing from a VSTGUI perspective here is that we have to initialize
+ * the VSTGUI static data structures. On Mac and Windows, this is an easy call and
+ * we can use the VSTGUI::finally mechanism to clean up. On Linux there is a more
+ * complicated global event loop to merge which, thanks to the way VSTGUI structures
+ * their event loops, is a touch more awkward. As such the linux code is all in a different
+ * cpp file for individual documentation (Please see the README for any linux disclaimers
+ * and most recent status).
+ */
 bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 {
     static bool everInit{false};
@@ -53,7 +74,7 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
         VSTGUI::init(GetModuleHandle(nullptr));
 #endif
 
-#if 0
+#if IS_MAC || IS_WIN
         static auto cleanup = VSTGUI::finally(
             []()
             {
@@ -72,6 +93,11 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 
     return editor != nullptr;
 }
+
+/*
+ * guiDestroy destorys the editor object and returns it to the
+ * nullptr sentinel, to stop ::process sending events to the ui.
+ */
 void ClapSawDemo::guiDestroy() noexcept
 {
 #if IS_LINUX
@@ -83,6 +109,17 @@ void ClapSawDemo::guiDestroy() noexcept
     editor = nullptr;
 }
 
+/*
+ * guiSetParent is the core API for a clap HOST which has a window to
+ * reparent the editor to that host managed window. It sends a
+ * `const clap_window *window` data structure which contains a union of
+ * platform specific window pointers.
+ *
+ * VSTGUI handles reparenting through `VSTGUI::CFrame::open` which consumes
+ * a pointer to a native window. This makes adapting easy. Our editor object
+ * owns a `CFrame` as its base window, and setParent opens it with the new
+ * parent platform specific item handed to it.
+ */
 bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
 {
 #if IS_MAC
@@ -94,21 +131,21 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
 #if IS_WIN
     editor->getFrame()->open(window->win32);
 #endif
-    editor->setupUI(window);
 
-    // The above starts the idle timer so lets pump our param values to the queue
-    for (const auto &[k, v] : paramToValue)
-    {
-        auto r = ToUI();
-        r.type = ToUI::PARAM_VALUE;
-        r.id = k;
-        r.value = *v;
-        toUiQ.try_enqueue(r);
-    }
+    // Once we are reparented, we can set up our UI
+    editor->setupUI();
 
+    // and ask the engine to refresh
+    refreshUIValues = true;
+
+    // And we are done!
     return true;
 }
 
+/*
+ * Sizing is described in the gui extension, but this implementation
+ * means that if the host drags to resize, we accept its size and resize our frame
+ */
 bool ClapSawDemo::guiSetSize(uint32_t width, uint32_t height) noexcept
 {
     assert(editor);
@@ -127,44 +164,24 @@ bool ClapSawDemo::guiAdjustSize(uint32_t *width, uint32_t *height) noexcept
     return true;
 }
 
-// Just a little throwaway component to draw a nicer background
+/*
+ * Part TWO of this example is actually writing a VSTGUI UI
+ *
+ * Surge used to be all VSTGUI but we ported to JUCE. Doing that meant my
+ * VSTGUI is a bit rusty. Also I'm not a designer. But really the only thing
+ * here which is even mildly unexpected is how events go from the editor back to the engine
+ * and from the engine to the UI using the thread safe queues, which our editor is
+ * constructed with references to.
+ */
+
+/*
+ * This is a throwaway component which just makes the background.
+ */
 struct ClapSawDemoBackground : public VSTGUI::CView
 {
     explicit ClapSawDemoBackground(const VSTGUI::CRect &s) : VSTGUI::CView(s) {}
 
-    void draw(VSTGUI::CDrawContext *dc) override
-    {
-        auto r = VSTGUI::CRect(0, 0, getWidth(), getHeight());
-        dc->setFillColor(VSTGUI::CColor(0x20, 0x20, 0x50));
-        dc->drawRect(r, VSTGUI::kDrawFilled);
-
-        auto t = VSTGUI::CRect(0, 0, getWidth(), 60);
-        dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
-        dc->drawRect(t, VSTGUI::kDrawFilled);
-
-        auto b = VSTGUI::CRect(VSTGUI::CPoint(0, getHeight() - 40), VSTGUI::CPoint(getWidth(), 40));
-        dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
-        dc->drawRect(b, VSTGUI::kDrawFilled);
-
-        if (polyCount == 0)
-        {
-            dc->setFrameColor(VSTGUI::CColor(0x80, 0x80, 0xA0));
-            dc->setLineWidth(1);
-        }
-        else
-        {
-            auto add = std::clamp(polyCount * 5, 0, 0x40);
-            dc->setFrameColor(VSTGUI::CColor(0xAF + add, 0xAF + add, 0xAF + add));
-            dc->setLineWidth(2 + polyCount / 5.0);
-        }
-
-        dc->drawLine(VSTGUI::CPoint(160, 90), VSTGUI::CPoint(222, 90));
-        dc->drawLine(VSTGUI::CPoint(222, 90), VSTGUI::CPoint(222, 150));
-        dc->drawLine(VSTGUI::CPoint(100, 400), VSTGUI::CPoint(222, 400));
-        dc->drawLine(VSTGUI::CPoint(222, 400), VSTGUI::CPoint(222, 340));
-        dc->drawLine(VSTGUI::CPoint(240, 235), VSTGUI::CPoint(285, 235));
-    }
-
+    void draw(VSTGUI::CDrawContext *dc) override;
     int polyCount{0};
 };
 
@@ -179,7 +196,8 @@ ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
     frame->remember();
 }
 
-void ClapSawDemoEditor::setupUI(const clap_window_t *w)
+// Create and add our UI objects with a callback tag. Completely standard VSTGUI
+void ClapSawDemoEditor::setupUI()
 {
     _DBGMARK;
 
@@ -282,6 +300,7 @@ ClapSawDemoEditor::~ClapSawDemoEditor()
     idleTimer->forget();
 }
 
+// We add this resize method and call it from setSize to scale the background and recenter labels
 void ClapSawDemoEditor::resize()
 {
     auto w = getFrame()->getWidth();
@@ -296,6 +315,11 @@ void ClapSawDemoEditor::resize()
     bottomLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - 20), VSTGUI::CPoint(w, 20)));
 }
 
+/*
+ * A tiny little utility mapping between our VSTGUI control tags and
+ * our synth parameters. These *could* be the same but having them different
+ * makes sure I don't assume they are the same.
+ */
 uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
 {
     switch ((ClapSawDemoEditor::tags)tag)
@@ -321,6 +345,13 @@ uint32_t ClapSawDemoEditor::paramIdFromTag(int32_t tag)
     return 0;
 }
 
+/*
+ * The primary thing valueChanged needs to do is
+ *
+ * 1; Scale our VSTGUI 0..1 or -1..1 values to the right scale and
+ * 2: Send an outbound queue event to the lock free ui -> engine queue with
+ *    the info.
+ */
 void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
 {
     auto t = (tags)c->getTag();
@@ -363,6 +394,30 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
         outbound.try_enqueue(q);
 }
 
+/*
+ * Similarly, beginEdit / endEdit need to map the gui tag to a param id and then
+ * enqueue an outbound event.
+ */
+void ClapSawDemoEditor::beginEdit(int32_t tag)
+{
+    auto q = ClapSawDemo::FromUI();
+    q.id = paramIdFromTag(tag);
+    q.type = ClapSawDemo::FromUI::MType::BEGIN_EDIT;
+    outbound.try_enqueue(q);
+}
+void ClapSawDemoEditor::endEdit(int32_t tag)
+{
+    auto q = ClapSawDemo::FromUI();
+    q.id = paramIdFromTag(tag);
+    q.type = ClapSawDemo::FromUI::MType::END_EDIT;
+    outbound.try_enqueue(q);
+}
+
+/*
+ * The ::idle method polls the inbound queue and value-based data structure,
+ * responds by rescaling values and setting them on UI elements, and then invalidates
+ * the appropriate UI control.
+ */
 void ClapSawDemoEditor::idle()
 {
     ClapSawDemo::ToUI r;
@@ -412,19 +467,39 @@ void ClapSawDemoEditor::idle()
         backgroundRender->invalid();
     }
 }
-void ClapSawDemoEditor::beginEdit(int32_t index)
+
+// Small irrelevant detail of how we draw the background
+void ClapSawDemoBackground::draw(VSTGUI::CDrawContext *dc)
 {
-    auto q = ClapSawDemo::FromUI();
-    q.id = paramIdFromTag(index);
-    q.type = ClapSawDemo::FromUI::MType::BEGIN_EDIT;
-    outbound.try_enqueue(q);
-}
-void ClapSawDemoEditor::endEdit(int32_t index)
-{
-    auto q = ClapSawDemo::FromUI();
-    q.id = paramIdFromTag(index);
-    q.type = ClapSawDemo::FromUI::MType::END_EDIT;
-    outbound.try_enqueue(q);
+    auto r = VSTGUI::CRect(0, 0, getWidth(), getHeight());
+    dc->setFillColor(VSTGUI::CColor(0x20, 0x20, 0x50));
+    dc->drawRect(r, VSTGUI::kDrawFilled);
+
+    auto t = VSTGUI::CRect(0, 0, getWidth(), 60);
+    dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
+    dc->drawRect(t, VSTGUI::kDrawFilled);
+
+    auto b = VSTGUI::CRect(VSTGUI::CPoint(0, getHeight() - 40), VSTGUI::CPoint(getWidth(), 40));
+    dc->setFillColor(VSTGUI::CColor(0x40, 0x40, 0x90));
+    dc->drawRect(b, VSTGUI::kDrawFilled);
+
+    if (polyCount == 0)
+    {
+        dc->setFrameColor(VSTGUI::CColor(0x80, 0x80, 0xA0));
+        dc->setLineWidth(1);
+    }
+    else
+    {
+        auto add = std::clamp(polyCount * 5, 0, 0x40);
+        dc->setFrameColor(VSTGUI::CColor(0xAF + add, 0xAF + add, 0xAF + add));
+        dc->setLineWidth(2 + polyCount / 5.0);
+    }
+
+    dc->drawLine(VSTGUI::CPoint(160, 90), VSTGUI::CPoint(222, 90));
+    dc->drawLine(VSTGUI::CPoint(222, 90), VSTGUI::CPoint(222, 150));
+    dc->drawLine(VSTGUI::CPoint(100, 400), VSTGUI::CPoint(222, 400));
+    dc->drawLine(VSTGUI::CPoint(222, 400), VSTGUI::CPoint(222, 340));
+    dc->drawLine(VSTGUI::CPoint(240, 235), VSTGUI::CPoint(285, 235));
 }
 
 } // namespace sst::clap_saw_demo

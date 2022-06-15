@@ -11,6 +11,11 @@ namespace sst::clap_saw_demo
 {
 struct ClapSawDemoBackground;
 
+/*
+ * ClapSawDemoEditor is a VSTGUI Editor class and IControllerListener which does nothing
+ * special or unexpected; it creates and holds a CFrame, handles edit events, and so on.
+ * The majority of the explanatory comments are in clap-saw-demo-editor.cpp
+ */
 struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::IControlListener
 {
     ClapSawDemo::SynthToUI_Queue_t &inbound;
@@ -38,7 +43,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
 
     };
 
-    void setupUI(const clap_window_t *);
+    void setupUI();
     uint32_t paramIdFromTag(int32_t tag);
 
     void idle();
