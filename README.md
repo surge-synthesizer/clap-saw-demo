@@ -51,7 +51,7 @@ and also, wouldn't you rather work on surge or shortcircuit? Also please keep a 
 ## A note to Linux users
 
 CLAP works great on linux! We have done loads of our primary CLAP development there.
-But VSTGUI is a bit trickier. So right now if you build and run this we know we ahve a couple
+But VSTGUI is a bit trickier. So right now if you build and run this we know we have a couple
 of bugs relating to VSTGUI keeping a global state which we update and cleanup improperly.
 This means, basically, that if you delete a demo you may not get a working GUI on other instances
 of the synth, and you may also get an FD leak at exit.
