@@ -33,32 +33,78 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
 
     void addPlugin(ClapSawDemo *p)
     {
+        _DBGMARK;
         if (primaryPlugin == nullptr)
         {
             primaryPlugin = p;
+            if (firstFdSeen)
+            {
+                _DBGCOUT << "Re-registering with primary plugin anew" << std::endl;
+                primaryPlugin->registerPosixFd(firstFd);
+            }
+
+            for (auto &[handler, interval] : unparentedTimers)
+            {
+                registerTimer(interval, handler);
+            }
+            unparentedTimers.clear();
         }
         plugins.insert(p);
     }
     void removePlugin(ClapSawDemo *p)
     {
+        _DBGMARK;
         if (p == primaryPlugin)
         {
-            if (plugins.size() == 1)
+            _DBGCOUT << "Primary plugin closed; undoing FD" << std::endl;
+            if (firstFdSeen)
+                p->unregisterPosixFD(firstFd);
+
+            auto timerCopy = timerToInterval;
+            for (auto &[handler, interval] : timerCopy)
             {
-                _DBGCOUT << "TRUE EXIT CONDITION" << std::endl;
+                unregisterTimer(handler);
+            }
+
+            plugins.erase(p);
+            if (plugins.size() >= 1)
+            {
+                _DBGCOUT << "Adopted by someone else" << std::endl;
+                primaryPlugin = (*plugins.begin());
+                if (firstFdSeen)
+                    primaryPlugin->registerPosixFd(firstFd);
+
+                for (auto &[handler, interval] : timerCopy)
+                    registerTimer(interval, handler);
             }
             else
             {
-                _DBGCOUT << "HANDOFF" << std::endl;
+                primaryPlugin = nullptr;
+                for (auto hi : timerCopy)
+                    unparentedTimers.emplace_back(hi);
             }
         }
-        plugins.erase(p);
+        else
+        {
+            plugins.erase(p);
+        }
     }
+
+    bool firstFdSeen{false};
+    int firstFd{0};
+    VSTGUI::X11::IEventHandler *firstFdHandler{nullptr};
 
     std::map<VSTGUI::X11::IEventHandler *, int> eventHandlers;
     bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(fd) << _D(handler) << std::endl;
+        if (!firstFdSeen)
+        {
+            _DBGCOUT << "This is the special VSTGUI First FD" << std::endl;
+            firstFdSeen = true;
+            firstFd = fd;
+            firstFdHandler = handler;
+        }
         auto res = primaryPlugin->registerPosixFd(fd);
         eventHandlers.insert({handler, fd});
         return res;
@@ -66,6 +112,10 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(handler) << std::endl;
+        if (handler == firstFdHandler)
+        {
+            _DBGCOUT << "And its the firstFD handler" << std::endl;
+        }
         auto it = eventHandlers.begin();
         while (it != eventHandlers.end())
         {
@@ -74,7 +124,10 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
             {
                 _DBGCOUT << "Found an event handler to erase " << _D(fd) << std::endl;
                 eventHandlers.erase(it);
-                return primaryPlugin->unregisterPosixFD(fd);
+                if (primaryPlugin)
+                    return primaryPlugin->unregisterPosixFD(fd);
+                else
+                    return true;
             }
             it++;
         }
@@ -91,12 +144,17 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
 
     std::map<clap_id, VSTGUI::X11::ITimerHandler *> timerHandlers;
+    std::unordered_map<VSTGUI::X11::ITimerHandler *, uint64_t> timerToInterval;
+    std::list<std::pair<VSTGUI::X11::ITimerHandler *, uint64_t>> unparentedTimers;
     bool registerTimer(uint64_t interval, VSTGUI::X11::ITimerHandler *handler) override
     {
         _DBGCOUT << _D(interval) << _D(handler) << std::endl;
+
         clap_id id;
         auto res = primaryPlugin->registerTimer(interval, &id);
+        timerToInterval[handler] = interval;
         timerHandlers[id] = handler;
+        _DBGCOUT << "Timer registered at " << id << std::endl;
         return res;
     }
     bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override
@@ -108,8 +166,9 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
             const auto &[k, v] = *it;
             if (v == handler)
             {
-                _DBGCOUT << "Found a timer handler to erase" << std::endl;
+                _DBGCOUT << "Found a timer handler to erase " << k << std::endl;
                 timerHandlers.erase(it);
+                timerToInterval.erase(v);
                 return primaryPlugin->unregisterTimer(k);
             }
             it++;
@@ -177,12 +236,14 @@ void removeLinuxVSTGUIPlugin(ClapSawDemo *that)
 
     if (crl)
     {
-        if (crl->plugins.size() == 1)
-        {
-            _DBGCOUT << "Last person out the door" << std::endl;
-        }
+        crl->removePlugin(that);
     }
 
+}
+
+void exitLinuxVSTGUI()
+{
+    VSTGUI::X11::RunLoop::exit();
 }
 #endif
 

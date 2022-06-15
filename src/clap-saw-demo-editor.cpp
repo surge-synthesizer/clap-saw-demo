@@ -75,14 +75,16 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
         VSTGUI::init(GetModuleHandle(nullptr));
 #endif
 
-#if IS_MAC || IS_WIN
+
+        // This prooves unreliable
         static auto cleanup = VSTGUI::finally(
             []()
             {
                 _DBGCOUT << "Exiting VSTGUI" << std::endl;
                 VSTGUI::exit();
+                _DBGCOUT << "VSTGUI Exit done" << std::endl;
             });
-#endif
+
 
         everInit = true;
     }
