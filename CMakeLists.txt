@@ -20,7 +20,7 @@ set(CMAKE_CXX_STANDARD 17)
 option(USE_SANITIZER "Build and link with ASAN" FALSE)
 
 # Copy on mac (could expand to other platforms)
-option(MACOS_COPY_AFTER_BUILD "Copy the clap to ~/Library on MACOS" FALSE)
+option(COPY_AFTER_BUILD "Copy the clap to ~/Library on MACOS, ~/.clap on linux" FALSE)
 
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
@@ -62,7 +62,7 @@ if(APPLE)
             $<$<BOOL:${USE_SANITIZER}>:-fsanitize=undefined>
             )
 
-    if (${MACOS_COPY_AFTER_BUILD})
+    if (${COPY_AFTER_BUILD})
         message(STATUS "Will copy plugin after every build" )
         set(products_folder ${CMAKE_BINARY_DIR})
         add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
@@ -75,6 +75,16 @@ elseif(UNIX)
     target_compile_definitions(${PROJECT_NAME} PRIVATE IS_LINUX=1)
     target_sources(${PROJECT_NAME} PRIVATE src/linux-vstgui-adapter.cpp)
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")
+    if (${COPY_AFTER_BUILD})
+        message(STATUS "Will copy plugin after every build" )
+        set(products_folder ${CMAKE_BINARY_DIR})
+        add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+                COMMAND ${CMAKE_COMMAND} -E echo "Installing ${products_folder}/${PROJECT_NAME}.clap to ~/.clap"
+                COMMAND ${CMAKE_COMMAND} -E make_directory "~/.clap"
+                COMMAND ${CMAKE_COMMAND} -E copy "${products_folder}/${PROJECT_NAME}.clap" "~/.clap"
+                )
+    endif()
+
 else()
     target_compile_definitions(${PROJECT_NAME} PRIVATE IS_WIN=1)
     set_target_properties(${PROJECT_NAME} PROPERTIES SUFFIX ".clap" PREFIX "")

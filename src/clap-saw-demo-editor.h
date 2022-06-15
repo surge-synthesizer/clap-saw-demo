@@ -26,6 +26,8 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
                       const ClapSawDemo::DataCopyForUI &);
     ~ClapSawDemoEditor();
 
+    void haltIdleTimer();
+
     void valueChanged(VSTGUI::CControl *) override;
     void beginEdit(int32_t index) override;
     void endEdit(int32_t index) override;

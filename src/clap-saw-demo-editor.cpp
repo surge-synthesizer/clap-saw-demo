@@ -64,6 +64,7 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
  */
 bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 {
+    _DBGMARK;
     static bool everInit{false};
     if (!everInit)
     {
@@ -100,6 +101,11 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
  */
 void ClapSawDemo::guiDestroy() noexcept
 {
+    _DBGMARK;
+
+    // We need to split this because of linux
+    editor->haltIdleTimer();
+
 #if IS_LINUX
     removeLinuxVSTGUIPlugin(this);
 #endif
@@ -296,10 +302,16 @@ ClapSawDemoEditor::~ClapSawDemoEditor()
 {
     _DBGMARK;
     frame->forget();
-    idleTimer->stop();
-    idleTimer->forget();
+    frame = nullptr;
 }
 
+void ClapSawDemoEditor::haltIdleTimer()
+{
+    _DBGCOUT << "Stopping idle timer" << std::endl;
+    idleTimer->stop();
+    idleTimer->forget();
+    idleTimer = nullptr;
+}
 // We add this resize method and call it from setSize to scale the background and recenter labels
 void ClapSawDemoEditor::resize()
 {

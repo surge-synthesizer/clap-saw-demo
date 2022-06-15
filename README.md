@@ -51,15 +51,18 @@ and also, wouldn't you rather work on surge or shortcircuit? Also please keep a 
 ## A note to Linux users
 
 CLAP works great on linux! We have done loads of our primary CLAP development there.
-But VSTGUI is a bit trickier. So right now if you build and run this we know we have a couple
-of bugs relating to VSTGUI keeping a global state which we update and cleanup improperly.
-This means, basically, that if you delete a demo you may not get a working GUI on other instances
-of the synth, and you may also get an FD leak at exit.
+But VSTGUI on linux is a bit trickier. 
 
-We know how to fix this, just we ran out of time. Stay tuned! (Or if you want to chip in and fix it
-hit us up on github. The basic problem is outlined in the linux-... files)
+VSTGUI has a global timer and global xcb handle which are stored on a dll-static. 
+CLAP has extensions per plugin to map to posixFd and timer callbacks from the host.
 
-## BaconPaul's outstanding todos
+So what this means today, at this version, is
 
-1. Document and maybe fix the linux stuff.
-2. Set up an azure pipeline and build asset maybe? 
+1: A *single plugin* session will look like an FD and Timer leak on exit since 
+   i make no effort to cleanup (which is crash prone if you do it wrong)
+2. A *multi plugin* session will have the UI stop working when you delete the
+   *first* plugin which showed its UI
+
+This is obviously not OK, and we see how to fix it (basically juggling that global subscription)
+but haven't done it yet. If you want to help get in touch, but we will work on it over the
+next week.
