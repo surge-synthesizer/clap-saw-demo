@@ -119,6 +119,11 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     }
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override;
+
+  protected:
+    void paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept override;
+
+  public:
     // Convert 0-1 linear into 0-4s exponential
     float scaleTimeParamToSeconds(float param);
 
@@ -200,7 +205,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      *
      * But that UI runs in another thread, and all the CLAP events are handled
      * in process, so we also need to think about inter-thread communication.
-     * To do that we have three core data structures and one pointer
+     * To do that we have three core data structures, a function, and one pointer
      *
      * - A pointer to an editor object (here a concrete editor, but a more advanced
      *   implementation could make that a proxy or a bool), which we test for null
@@ -216,6 +221,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      *   an in-memory const& to it. ::process updates a counter and the idle loop looks
      *   for counter changes. This allows values to propagate without events, and we use
      *   it here for polyphony count.
+     * - A single std::function<void()> which the editor can use to ask the host to do
+     *   a parameter flush.
      *
      * These functions are members of ClapSawDemo but we impelment them in
      * `clap-saw-demo-editor.cpp` along with the VSTGUI implementation. You can consult the
@@ -241,6 +248,11 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     // Setting this atomic to true will force a push of all current engine
     // params to ui using the queue mechanism
     std::atomic<bool> refreshUIValues{false};
+
+    // This is an API point the editor can call back to to request the host to flush
+    // bound by a lambda to the editor. For a technical template reason its implemented
+    // (trivially) in clap-saw-demo.cpp not demo-editor
+    void editorParamsFlush();
 
 #if IS_LINUX
     // PLEASE see the README comments on Linux. We are working on making this more rational

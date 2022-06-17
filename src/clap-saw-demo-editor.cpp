@@ -90,7 +90,8 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 #if IS_LINUX
     addLinuxVSTGUIPlugin(this);
 #endif
-    editor = new ClapSawDemoEditor(toUiQ, fromUiQ, dataCopyForUI);
+    editor =
+        new ClapSawDemoEditor(toUiQ, fromUiQ, dataCopyForUI, [this]() { editorParamsFlush(); });
 
     return editor != nullptr;
 }
@@ -141,9 +142,23 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     // Once we are reparented, we can set up our UI
     editor->setupUI();
 
-    // and ask the engine to refresh
-    refreshUIValues = true;
-
+    if (dataCopyForUI.isProcessing)
+    {
+        // and ask the engine to refresh from the processing thread
+        refreshUIValues = true;
+    }
+    else
+    {
+        // Pull the parameters on the main thread
+        for (const auto &[k, v] : paramToValue)
+        {
+            auto r = ToUI();
+            r.type = ToUI::PARAM_VALUE;
+            r.id = k;
+            r.value = *v;
+            toUiQ.try_enqueue(r);
+        }
+    }
     // And we are done!
     return true;
 }
@@ -197,8 +212,8 @@ struct ClapSawDemoBackground : public VSTGUI::CView
 
 ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
                                      ClapSawDemo::UIToSynth_Queue_t &o,
-                                     const ClapSawDemo::DataCopyForUI &d)
-    : inbound(i), outbound(o), synthData(d)
+                                     const ClapSawDemo::DataCopyForUI &d, std::function<void()> pf)
+    : inbound(i), outbound(o), synthData(d), paramRequestFlush(std::move(pf))
 {
     frame = new VSTGUI::CFrame(
         VSTGUI::CRect(0, 0, ClapSawDemo::GUI_DEFAULT_W, ClapSawDemo::GUI_DEFAULT_H), this);
@@ -407,8 +422,10 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     }
     }
     if (send)
+    {
         outbound.try_enqueue(q);
-
+        paramRequestFlush();
+    }
 }
 
 /*
@@ -421,6 +438,7 @@ void ClapSawDemoEditor::beginEdit(int32_t tag)
     q.id = paramIdFromTag(tag);
     q.type = ClapSawDemo::FromUI::MType::BEGIN_EDIT;
     outbound.try_enqueue(q);
+    paramRequestFlush();
 }
 void ClapSawDemoEditor::endEdit(int32_t tag)
 {
@@ -428,6 +446,7 @@ void ClapSawDemoEditor::endEdit(int32_t tag)
     q.id = paramIdFromTag(tag);
     q.type = ClapSawDemo::FromUI::MType::END_EDIT;
     outbound.try_enqueue(q);
+    paramRequestFlush();
 }
 
 /*
