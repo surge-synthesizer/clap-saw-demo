@@ -173,6 +173,23 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void handleNoteOn(int port_index, int channel, int key, int noteid);
     void handleNoteOff(int port_index, int channel, int key);
 
+    /*
+     * start and stop processing are called when you start and stop obviously.
+     * We update an atomic bool so our UI can go ahead and draw processing state
+     * and also flush param changes when there is no processing queue.
+     */
+    bool startProcessing() noexcept override
+    {
+        dataCopyForUI.isProcessing = true;
+        dataCopyForUI.updateCount++;
+        return true;
+    }
+    void stopProcessing() noexcept override
+    {
+        dataCopyForUI.isProcessing = false;
+        dataCopyForUI.updateCount++;
+    }
+
   protected:
     /*
      * OK so now you see how the engine works. Great! But how does the GUI work?
@@ -287,6 +304,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     struct DataCopyForUI
     {
         std::atomic<uint32_t> updateCount{0};
+        std::atomic<bool> isProcessing{false};
         std::atomic<int> polyphony{0};
     } dataCopyForUI;
 
