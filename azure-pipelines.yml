@@ -42,6 +42,9 @@ jobs:
             libxkbcommon-dev \
             libxkbcommon-x11-dev \
             ninja-build \
+            libcogl-pango-dev \
+            libpangoft2-1.0-0 \
+            libpango-1.0-0 \
             xcb
         displayName: apt-get
         condition: variables.isLinux
