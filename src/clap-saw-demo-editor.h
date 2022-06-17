@@ -21,9 +21,10 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     ClapSawDemo::SynthToUI_Queue_t &inbound;
     ClapSawDemo::UIToSynth_Queue_t &outbound;
     const ClapSawDemo::DataCopyForUI &synthData;
+    std::function<void()> paramRequestFlush;
 
     ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &, ClapSawDemo::UIToSynth_Queue_t &,
-                      const ClapSawDemo::DataCopyForUI &);
+                      const ClapSawDemo::DataCopyForUI &, std::function<void()>);
     ~ClapSawDemoEditor();
 
     void haltIdleTimer();

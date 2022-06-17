@@ -239,6 +239,16 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
 }
 
 /*
+ * If the processing loop isn't running, the call to requestParamFlush from the UI will
+ * result in this being called on the main thread, and generating all the appropriate
+ * param updates. As of BWS43b6, this is not being called and so is unimplemented.
+ */
+void ClapSawDemo::paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept
+{
+    _DBGMARK;
+}
+
+/*
  * Stereo out, Midi in, in a pretty obvious way.
  * The only trick is the idi in also has NOTE_DIALECT_CLAP which provides us
  * with options on note expression and the like.
@@ -847,6 +857,11 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
     return true;
 }
 
+/*
+ * A simple passthrough. Put it here to allow the template mechanics to see the impl.
+ */
+void ClapSawDemo::editorParamsFlush() { _host.paramsRequestFlush(); }
+
 #if IS_LINUX
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
@@ -854,7 +869,8 @@ bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
     _DBGCOUT << "-----------------++++>>>>>>>  REGISTER " << *id << std::endl;
     return res;
 }
-bool ClapSawDemo::unregisterTimer(clap_id id) {
+bool ClapSawDemo::unregisterTimer(clap_id id)
+{
     _DBGCOUT << "-----------------++++<<<<<<  UNREGISTER " << id << std::endl;
     return _host.timerSupportUnregister(id);
 }
