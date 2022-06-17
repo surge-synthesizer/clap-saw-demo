@@ -75,7 +75,6 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
         VSTGUI::init(GetModuleHandle(nullptr));
 #endif
 
-
         // This prooves unreliable
         static auto cleanup = VSTGUI::finally(
             []()
@@ -84,7 +83,6 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
                 VSTGUI::exit();
                 _DBGCOUT << "VSTGUI Exit done" << std::endl;
             });
-
 
         everInit = true;
     }
@@ -183,7 +181,10 @@ bool ClapSawDemo::guiAdjustSize(uint32_t *width, uint32_t *height) noexcept
  */
 
 /*
- * This is a throwaway component which just makes the background.
+ * This is a throwaway component which just makes the background. The only interesting
+ * thing here is that it consumes the polycount and processing state to draw differently
+ * (show the count and thicken the signal lines with poly count and draw an off / off
+ * green red blob for isProcessing).
  */
 struct ClapSawDemoBackground : public VSTGUI::CView
 {
@@ -191,6 +192,7 @@ struct ClapSawDemoBackground : public VSTGUI::CView
 
     void draw(VSTGUI::CDrawContext *dc) override;
     int polyCount{0};
+    bool isProcessing{false};
 };
 
 ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
@@ -406,6 +408,7 @@ void ClapSawDemoEditor::valueChanged(VSTGUI::CControl *c)
     }
     if (send)
         outbound.try_enqueue(q);
+
 }
 
 /*
@@ -478,6 +481,7 @@ void ClapSawDemoEditor::idle()
         statusLabel->setText(sl.c_str());
         statusLabel->invalid();
         backgroundRender->polyCount = synthData.polyphony;
+        backgroundRender->isProcessing = synthData.isProcessing;
         backgroundRender->invalid();
     }
 }
@@ -514,6 +518,20 @@ void ClapSawDemoBackground::draw(VSTGUI::CDrawContext *dc)
     dc->drawLine(VSTGUI::CPoint(100, 400), VSTGUI::CPoint(222, 400));
     dc->drawLine(VSTGUI::CPoint(222, 400), VSTGUI::CPoint(222, 340));
     dc->drawLine(VSTGUI::CPoint(240, 235), VSTGUI::CPoint(285, 235));
+
+    if (isProcessing)
+    {
+        dc->setFillColor(VSTGUI::CColor(0x60, 0xA0, 0x60));
+        dc->setFrameColor(VSTGUI::CColor(0xAF, 0xFF, 0xAF));
+    }
+    else
+    {
+        dc->setFillColor(VSTGUI::CColor(0xA0, 0x60, 0x60));
+        dc->setFrameColor(VSTGUI::CColor(0xFF, 0xAF, 0xAF));
+    }
+    dc->setLineWidth(1);
+    dc->drawEllipse(VSTGUI::CRect(VSTGUI::CPoint(10, 10), VSTGUI::CPoint(15, 15)),
+                    VSTGUI::kDrawFilledAndStroked);
 }
 
 } // namespace sst::clap_saw_demo

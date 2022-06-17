@@ -32,6 +32,9 @@ We tried to make an effort to have the code clean to read with reasonable commen
 The best starting point is probably clap-saw-demo.h if you want to understand the
 modulation system or clap-saw-demo-editor.h if you want to understand the VSTGUI bindings.
 
+There are still a few small things which aren't done. The issues list in this github repo
+is the book of work to get to a final state.
+
 ## Sending a change, fix, or PR
 
 This is an open contribution project! We welcome changes and contributions. If you find a small bug
@@ -51,7 +54,7 @@ and also, wouldn't you rather work on surge or shortcircuit? Also please keep a 
 ## A note to Linux users
 
 CLAP works great on linux! We have done loads of our primary CLAP development there.
-But VSTGUI on linux is a bit trickier. 
+But VSTGUI on linux is a bit trickier.
 
 Anyway I think I finally got it working, but I need to write documentation and check it again.
 As of this commit, on Linux it works in BWS43b6 with multiple plugisn in process starting and stopping
