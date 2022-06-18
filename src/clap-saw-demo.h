@@ -117,6 +117,14 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         *value = *paramToValue[paramId];
         return true;
     }
+
+    /*
+     * This converts the numerical value of the parameter to a display value for the DAW.
+     * For instance we model filter cutoff in 12-TET MIDI Note space, so the value
+     * "60" of pmCutoff shows as "261.6 hz" and "69" (concert A) as "440 hz". Similarly
+     * this is where we show our time scaling for our attack and release, filter type,
+     * and so on.
+     */
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override;
 
