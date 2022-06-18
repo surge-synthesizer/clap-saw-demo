@@ -582,6 +582,9 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         // This little lambda updates a modulation slot in a voice properly
         auto applyToVoice = [&pevt](auto &v)
         {
+            if (v.state == SawDemoVoice::OFF && v.state == SawDemoVoice::NEWLY_OFF)
+                return;
+
             auto pd = pevt->param_id;
             switch (pd)
             {
