@@ -423,7 +423,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
         }
         for (auto &v : voices)
         {
-            if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
+            if (v.isPlaying())
             {
                 v.step();
                 if (chans >= 2)
@@ -580,12 +580,11 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     case CLAP_EVENT_PARAM_MOD:
     {
         auto pevt = reinterpret_cast<const clap_event_param_mod *>(evt);
-        auto pd = pevt->param_id;
 
         // This little lambda updates a modulation slot in a voice properly
         auto applyToVoice = [&pevt](auto &v)
         {
-            if (v.state == SawDemoVoice::OFF || v.state == SawDemoVoice::NEWLY_OFF)
+            if (!v.isPlaying())
                 return;
 
             auto pd = pevt->param_id;
@@ -671,7 +670,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
         for (auto &v : voices)
         {
-            if (v.state == SawDemoVoice::OFF || v.state == SawDemoVoice::NEWLY_OFF)
+            if (!v.isPlaying())
                 continue;
 
             // Note expressions work on key not note id
@@ -750,7 +749,7 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
 {
     for (auto &v : voices)
     {
-        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF && v.key == n && v.portid == port_index &&
+        if (v.isPlaying() && v.key == n && v.portid == port_index &&
             v.channel == channel)
         {
             v.release();
@@ -770,7 +769,7 @@ void ClapSawDemo::pushParamsToVoices()
 {
     for (auto &v : voices)
     {
-        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF)
+        if (v.isPlaying())
         {
             v.uniSpread = unisonSpread;
             v.oscDetune = oscDetune;
