@@ -136,7 +136,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     float scaleTimeParamToSeconds(float param);
 
     /*
-     * Many CLAP plugins will want input and output audio and note ports, altough
+     * Many CLAP plugins will want input and output audio and note ports, although
      * the spec doesn't require this. Here as a simple synth we set up a single s
      * stereo output and a single midi / clap_note input.
      */
@@ -176,7 +176,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
     /*
      * process is the meat of the operation. It does obvious things like trigger
-     * voices but also handles all the polypohnic modulation and so on. Please see the
+     * voices but also handles all the polyphonic modulation and so on. Please see the
      * comments in the cpp file to understand it and the helper functions we have
      * delegated to.
      */
@@ -232,7 +232,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      * - A single std::function<void()> which the editor can use to ask the host to do
      *   a parameter flush.
      *
-     * These functions are members of ClapSawDemo but we impelment them in
+     * These functions are members of ClapSawDemo but we implement them in
      * `clap-saw-demo-editor.cpp` along with the VSTGUI implementation. You can consult the
      * extensive comments in the clap gui extension for semantics and rules.
      */
@@ -257,7 +257,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     // params to ui using the queue mechanism
     std::atomic<bool> refreshUIValues{false};
 
-    // This is an API point the editor can call back to to request the host to flush
+    // This is an API point the editor can call back to request the host to flush
     // bound by a lambda to the editor. For a technical template reason its implemented
     // (trivially) in clap-saw-demo.cpp not demo-editor
     void editorParamsFlush();

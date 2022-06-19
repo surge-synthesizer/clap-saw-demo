@@ -28,7 +28,7 @@ namespace sst::clap_saw_demo
  *
  * The voice has the peculiar feature that you can fully bypass
  * the amplitude envelope generator and then it will simply gate
- * for note hold duration + release time. This allows externaly
+ * for note hold duration + release time. This allows externally
  * polyphonic and note expression modulation of the pre-filter VCA
  * without the internal AEG getting in the way.
  *
@@ -78,7 +78,7 @@ struct SawDemoVoice
     float sampleRate{0};
 
     // What is my AEG state. This will advance across attack hold releasing NEWLY_OFF
-    // even if the AEG is bypasssed. NEWLY_OFF is a state which lets us detect voices which
+    // even if the AEG is bypassed. NEWLY_OFF is a state which lets us detect voices which
     // terminate in a block so we can inform the DAW with a CLAP_EVENT_NOTE_END for polyphonic
     // voice cooperation
     enum AEGMode

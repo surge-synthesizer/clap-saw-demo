@@ -44,7 +44,7 @@ void SawDemoVoice::recalcFilter()
     auto rm = res + resMod;
 
     auto newfm = (StereoSimperSVF::Mode)filterMode;
-    ;
+
     if (newfm != filter.mode)
         filter.init();
     filter.mode = newfm;
@@ -107,7 +107,7 @@ void SawDemoVoice::step()
     for (int i = 0; i < unison; ++i)
     {
         /*
-         * Use a cubic integrated saw and second deriv it at
+         * Use a cubic integrated saw and second derive it at
          * each point. This is basically the math I worked
          * out for the surge modern oscillator. The cubic function
          * which gives a clean saw is phase^3 / 6 - phase / 6.
@@ -145,10 +145,8 @@ void SawDemoVoice::start(int key)
 
     filter.init();
     this->key = key;
-    baseFreq = 440.0 * pow(2.0, (key - 69.0) / 12.0);
     state = (ampAttack > 0 ? ATTACK : HOLD);
     time = 0;
-    filterTime = 0;
 
     if (unison == 1)
     {

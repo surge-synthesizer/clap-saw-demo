@@ -51,7 +51,7 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 /*
  * GUICreate gets called when the host requests the plugin create its editor with
  * a given API. We ignore the API and isFloating here, because we handled them
- * above and assuem our host follows the protocol that it only calls us with
+ * above and assume our host follows the protocol that it only calls us with
  * values which are supported.
  *
  * The important thing from a VSTGUI perspective here is that we have to initialize
@@ -97,7 +97,7 @@ bool ClapSawDemo::guiCreate(const char *api, bool isFloating) noexcept
 }
 
 /*
- * guiDestroy destorys the editor object and returns it to the
+ * guiDestroy destroys the editor object and returns it to the
  * nullptr sentinel, to stop ::process sending events to the ui.
  */
 void ClapSawDemo::guiDestroy() noexcept
