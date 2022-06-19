@@ -191,8 +191,11 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
         sValue = n2s(scaleTimeParamToSeconds(value)) + " s";
         break;
     case pmUnisonCount:
-        sValue = n2s(static_cast<int>(value)) + " voices";
+    {
+        int vc = static_cast<int>(value);
+        sValue = n2s(vc) + (vc == 1 ? " voice" : " voices");
         break;
+    }
     case pmUnisonSpread:
     case pmOscDetune:
         sValue = n2s(value) + " cents";
@@ -292,7 +295,7 @@ bool ClapSawDemo::notePortsInfo(uint32_t index, bool isInput,
  *    see the discussion in the clap header file for this structure), apply them
  *    to my internal state, and generate CLAP changed messages
  *
- * 2. Iterate over samples rendering the voices, and if an inbounc event is coincident
+ * 2. Iterate over samples rendering the voices, and if an inbound event is coincident
  *    with a sample, process that event for note on, modulation, parameter automation, and so on
  *
  * 3. Detect any voices which have terminated in the block (their state has become 'NEWLY_OFF'),
@@ -308,7 +311,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * Stage 1:
      *
      * The UI can send us gesture begin/end events which translate in to a
-     * `clap_event_param_getsture` or value adjustments.
+     * `clap_event_param_gesture` or value adjustments.
      */
     bool uiAdjustedValues{false};
     ClapSawDemo::FromUI r;
@@ -380,7 +383,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * CLAP has a single inbound event loop where every event is time stamped with
      * a sample id. This means the process loop can easily interleave note and parameter
      * and other events with audio generation. Here we do everything completely sample accurately
-     * by maitaining a pointer to the 'nextEvent' which we check at every sample.
+     * by maintaining a pointer to the 'nextEvent' which we check at every sample.
      */
     float **out = process->audio_outputs[0].data32;
     auto chans = process->audio_outputs->channel_count;
@@ -493,8 +496,8 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     {
         /*
          * We advertise both CLAP_DIALECT_MIDI and CLAP_DIALECT_CLAP_NOTE so we do need
-         * to handle midi events. CLAP just gives us MIDI 1 (or 2 if you want, but I didn't core
-         * that) streams do do with as you wish. The CLAP_MIDI_EVENT here does the obvious thing.
+         * to handle midi events. CLAP just gives us MIDI 1 (or 2 if you want, but I didn't code
+         * that) streams to do with as you wish. The CLAP_MIDI_EVENT here does the obvious thing.
          */
         auto mevt = reinterpret_cast<const clap_event_midi *>(evt);
         auto msg = mevt->data[0] & 0xF0;
@@ -503,13 +506,13 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         {
         case 0x90:
         {
-            // Hosts should prefer CLAP_NOTE events but if they dont
+            // Hosts should prefer CLAP_NOTE events but if they don't
             handleNoteOn(mevt->port_index, chan, mevt->data[1], -1);
             break;
         }
         case 0x80:
         {
-            // Hosts should prefer CLAP_NOTE events but if they dont
+            // Hosts should prefer CLAP_NOTE events but if they don't
             handleNoteOff(mevt->port_index, chan, mevt->data[1]);
             break;
         }
@@ -520,7 +523,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 
             for (auto &v : voices)
             {
-                v.pitchBendWheel = bv * 2; // just harcode a pitch bend depth of 2
+                v.pitchBendWheel = bv * 2; // just hardcode a pitch bend depth of 2
                 v.recalcPitch();
             }
 
@@ -530,7 +533,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         break;
     }
     /*
-     * CLAP_EVENT_NOTE_ON and OFF simpley deliver the event to the note creators below,
+     * CLAP_EVENT_NOTE_ON and OFF simply deliver the event to the note creators below,
      * which find (probably) and activate a spare or playing voice. Our 'voice stealing'
      * algorithm here is 'just don't play a note 65 if 64 are ringing. Remember this is an
      * example synth!
@@ -582,7 +585,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         // This little lambda updates a modulation slot in a voice properly
         auto applyToVoice = [&pevt](auto &v)
         {
-            if (v.state == SawDemoVoice::OFF && v.state == SawDemoVoice::NEWLY_OFF)
+            if (v.state == SawDemoVoice::OFF || v.state == SawDemoVoice::NEWLY_OFF)
                 return;
 
             auto pd = pevt->param_id;
@@ -660,7 +663,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     }
     break;
     /*
-     * Note expression ahdnling is similar to polymod. Traverse the voices - in note expression
+     * Note expression handling is similar to polymod. Traverse the voices - in note expression
      * indexed by channel / key / port - and adjust the modulation slot in each.
      */
     case CLAP_EVENT_NOTE_EXPRESSION:
@@ -668,6 +671,9 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         auto pevt = reinterpret_cast<const clap_event_note_expression *>(evt);
         for (auto &v : voices)
         {
+            if (v.state == SawDemoVoice::OFF || v.state == SawDemoVoice::NEWLY_OFF)
+                continue;
+
             // Note expressions work on key not note id
             if (v.key == pevt->key && v.channel == pevt->channel && v.portid == pevt->port_index)
             {
@@ -744,7 +750,7 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
 {
     for (auto &v : voices)
     {
-        if (v.state != SawDemoVoice::OFF && v.key == n && v.portid == port_index &&
+        if (v.state != SawDemoVoice::OFF && v.state != SawDemoVoice::NEWLY_OFF && v.key == n && v.portid == port_index &&
             v.channel == channel)
         {
             v.release();
@@ -833,7 +839,7 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 
     std::vector<std::string> items;
     size_t spos{0};
-    while ((spos = dat.find(";")) != std::string::npos)
+    while ((spos = dat.find(';')) != std::string::npos)
     {
         auto l = dat.substr(0, spos);
         dat = dat.substr(spos + 1);
@@ -847,7 +853,7 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
     }
     for (auto i : items)
     {
-        auto epos = i.find("=");
+        auto epos = i.find('=');
         if (epos == std::string::npos)
             continue; // oh well
         auto id = std::atoi(i.substr(0, epos).c_str());
