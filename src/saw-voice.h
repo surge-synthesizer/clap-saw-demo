@@ -103,6 +103,8 @@ struct SawDemoVoice
     void recalcPitch();
     void recalcFilter();
 
+    inline bool isPlaying() const { return state != OFF && state != NEWLY_OFF; }
+
     struct StereoSimperSVF // thanks to urs @ u-he and andy simper @ cytomic
     {
         float ic1eq[2]{0.f, 0.f}, ic2eq[2]{0.f, 0.f};
