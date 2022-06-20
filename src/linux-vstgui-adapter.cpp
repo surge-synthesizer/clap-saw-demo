@@ -17,13 +17,36 @@ namespace sst::clap_saw_demo
 {
 
 #if IS_LINUX
+/*
+ * OK so this is the VSTGUI IRunLoop which provides VSTGUI a chance to register global timer
+ * and fd handlers. But CLAP has per-plugin timer and fd handlers. So we have to mesh those.
+ * Here's how we do it
+ *
+ * The VSTGUI is to add and remvoe timer handlers and event handlers (FD handlers). As well
+ * as registering those with a plugin, we keep a map of their registration charactierstics.
+ *
+ * Then as plugins enter- and exit- the gui fray, they register her. If a plugin unregisters
+ * and it is the plugin we used to run the timer and fd, we unregister its timers and fd and
+ * register them with a different plugin. If no such plugin is available we wait for one to be,
+ * and when it pops up, we register with it. This is the concept of 'primary plugin'
+ *
+ * So this code looks like (basically) three sets of handlers
+ *
+ * 1. A map of what VSTGUi has registered with me
+ * 2. A handler for plugin changes
+ * 3. And combining those, registering and registering the event handlers with the plugin in question
+ *
+ */
 struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
 {
     std::unordered_set<ClapSawDemo *> plugins;
     ClapSawDemo *primaryPlugin{nullptr};
     ClapRunLoop(ClapSawDemo *p)  {
-        addPlugin(p);
         _DBGCOUT << "Creating ClapRunLoop" << std::endl;
+        addPlugin(p);
+    }
+    ~ClapRunLoop() {
+        _DBGCOUT << _D(registeredTimers.size()) << _D(registeredEventHandlers.size()) << std::endl;
     }
 
     void initializationOver()
@@ -31,57 +54,66 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         _DBGMARK;
     }
 
+    void setAsPrimaryPlugin(ClapSawDemo *p)
+    {
+        primaryPlugin = p;
+        _DBGCOUT << "Setting new primary plugin " << _D(primaryPlugin) << std::endl;
+        for (auto &[fd, handler] : registeredEventHandlers)
+        {
+            _DBGCOUT << "    Re-registering FD   : " << _D(fd) << std::endl;
+            primaryPlugin->registerPosixFd(fd);
+        }
+
+        assert(clapTimerIdToHandlerMap.size() == 0);
+        for (auto &[interval, handler] : registeredTimers)
+        {
+            clap_id id;
+            primaryPlugin->registerTimer(interval, &id);
+            _DBGCOUT << "    Re-registering Timer : " << _D(handler) << _D(interval) << " at " << _D(id) << std::endl;
+            clapTimerIdToHandlerMap[id] = handler;
+        }
+    }
+
     void addPlugin(ClapSawDemo *p)
     {
-        _DBGMARK;
+        _DBGCOUT << _D(p) << std::endl;
         if (primaryPlugin == nullptr)
         {
-            primaryPlugin = p;
-            if (firstFdSeen)
-            {
-                _DBGCOUT << "Re-registering with primary plugin anew" << std::endl;
-                primaryPlugin->registerPosixFd(firstFd);
-            }
-
-            for (auto &[handler, interval] : unparentedTimers)
-            {
-                registerTimer(interval, handler);
-            }
-            unparentedTimers.clear();
+            setAsPrimaryPlugin(p);
         }
         plugins.insert(p);
     }
     void removePlugin(ClapSawDemo *p)
     {
-        _DBGMARK;
+        _DBGCOUT << _D(p) << std::endl;
         if (p == primaryPlugin)
         {
-            _DBGCOUT << "Primary plugin closed; undoing FD" << std::endl;
-            if (firstFdSeen)
-                p->unregisterPosixFD(firstFd);
-
-            auto timerCopy = timerToInterval;
-            for (auto &[handler, interval] : timerCopy)
+            _DBGCOUT << "Primary Plugin being removed. Switching." << std::endl;
+            for (auto &[fd, handler] : registeredEventHandlers)
             {
-                unregisterTimer(handler);
+                _DBGCOUT << "    Event Unregister: " << _D(fd) << std::endl;
+                primaryPlugin->unregisterPosixFD(fd);
             }
+
+            // We clear the timer handlers but we leave them in registeredTimers, which means
+            // here we actually dont iterate over the registeredTimers
+            assert(registeredTimers.size() == clapTimerIdToHandlerMap.size());
+            for (const auto &[id, han] : clapTimerIdToHandlerMap)
+            {
+                _DBGCOUT << "    Timer Unregister: " << _D(id) << std::endl;
+                primaryPlugin->unregisterTimer(id);
+            }
+            clapTimerIdToHandlerMap.clear();
 
             plugins.erase(p);
             if (plugins.size() >= 1)
             {
-                _DBGCOUT << "Adopted by someone else" << std::endl;
-                primaryPlugin = (*plugins.begin());
-                if (firstFdSeen)
-                    primaryPlugin->registerPosixFd(firstFd);
-
-                for (auto &[handler, interval] : timerCopy)
-                    registerTimer(interval, handler);
+                _DBGCOUT << "    Moving handlers to new plugin" << std::endl;
+                setAsPrimaryPlugin(*(plugins.begin()));
             }
             else
             {
                 primaryPlugin = nullptr;
-                for (auto hi : timerCopy)
-                    unparentedTimers.emplace_back(hi);
             }
         }
         else
@@ -90,40 +122,37 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         }
     }
 
-    bool firstFdSeen{false};
-    int firstFd{0};
-    VSTGUI::X11::IEventHandler *firstFdHandler{nullptr};
-
-    std::map<VSTGUI::X11::IEventHandler *, int> eventHandlers;
+    /*
+     * This is the VSTGUI FD API. We cache the eventHandler and fd pair as registered.
+     * The easiest structure for that really is a list of pairs. The lookups are so varied
+     * a linear search is fine.
+     */
+    std::vector<std::pair<int, VSTGUI::X11::IEventHandler *>> registeredEventHandlers;
     bool registerEventHandler(int fd, VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(fd) << _D(handler) << std::endl;
-        if (!firstFdSeen)
+        registeredEventHandlers.emplace_back(fd, handler);
+
+        if (primaryPlugin)
         {
-            _DBGCOUT << "This is the special VSTGUI First FD" << std::endl;
-            firstFdSeen = true;
-            firstFd = fd;
-            firstFdHandler = handler;
+            auto res = primaryPlugin->registerPosixFd(fd);
+
+            return res;
         }
-        auto res = primaryPlugin->registerPosixFd(fd);
-        eventHandlers.insert({handler, fd});
-        return res;
+        return true;
     }
     bool unregisterEventHandler(VSTGUI::X11::IEventHandler *handler) override
     {
         _DBGCOUT << _D(handler) << std::endl;
-        if (handler == firstFdHandler)
+
+        auto it = registeredEventHandlers.begin();
+        while (it != registeredEventHandlers.end())
         {
-            _DBGCOUT << "And its the firstFD handler" << std::endl;
-        }
-        auto it = eventHandlers.begin();
-        while (it != eventHandlers.end())
-        {
-            const auto &[v, fd] = *it;
+            const auto &[fd, v] = *it;
             if (v == handler)
             {
                 _DBGCOUT << "Found an event handler to erase " << _D(fd) << std::endl;
-                eventHandlers.erase(it);
+                registeredEventHandlers.erase(it);
                 if (primaryPlugin)
                     return primaryPlugin->unregisterPosixFD(fd);
                 else
@@ -136,48 +165,76 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
     }
     void fireFd(int fd)
     {
-        for (const auto &[v, k] : eventHandlers)
+        for (const auto &[k, v] : registeredEventHandlers)
         {
             if (k == fd)
                 v->onEvent();
         }
     }
 
-    std::map<clap_id, VSTGUI::X11::ITimerHandler *> timerHandlers;
-    std::unordered_map<VSTGUI::X11::ITimerHandler *, uint64_t> timerToInterval;
-    std::list<std::pair<VSTGUI::X11::ITimerHandler *, uint64_t>> unparentedTimers;
+    /*
+     * Timers are slightly different. We need to keep their clap_id since that is
+     * how we get called back. So we have both the registered timers and the clapTimerIdToHandlerMap
+     */
+    std::map<clap_id, VSTGUI::X11::ITimerHandler *> clapTimerIdToHandlerMap;
+    std::vector<std::pair<uint64_t, VSTGUI::X11::ITimerHandler *>> registeredTimers;
     bool registerTimer(uint64_t interval, VSTGUI::X11::ITimerHandler *handler) override
     {
-        _DBGCOUT << _D(interval) << _D(handler) << std::endl;
+        _DBGCOUT << "regsiterTimer" << _D(handler) << std::endl;
 
-        clap_id id;
-        auto res = primaryPlugin->registerTimer(interval, &id);
-        timerToInterval[handler] = interval;
-        timerHandlers[id] = handler;
-        _DBGCOUT << "Timer registered at " << id << std::endl;
-        return res;
+        registeredTimers.emplace_back(interval, handler);
+
+        if (primaryPlugin)
+        {
+            clap_id id;
+            auto res = primaryPlugin->registerTimer(interval, &id);
+            clapTimerIdToHandlerMap[id] = handler;
+            _DBGCOUT << _D(interval) << _D(handler) << " as " << id << std::endl;
+            return res;
+        }
+        else
+        {
+            _DBGCOUT << "Timer registered without primary plugin" << std::endl;
+        }
+        return true;
     }
     bool unregisterTimer(VSTGUI::X11::ITimerHandler *handler) override
     {
         _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
-        auto it = timerHandlers.begin();
-        while (it != timerHandlers.end())
+
+        auto rit = registeredTimers.begin();
+        while( rit != registeredTimers.end())
+        {
+            if (rit->second == handler)
+            {
+                rit = registeredTimers.erase(rit);
+                break;
+            }
+            rit++;
+        }
+
+        auto it = clapTimerIdToHandlerMap.begin();
+        while (it != clapTimerIdToHandlerMap.end())
         {
             const auto &[k, v] = *it;
             if (v == handler)
             {
                 _DBGCOUT << "Found a timer handler to erase " << k << std::endl;
-                timerHandlers.erase(it);
-                timerToInterval.erase(v);
-                return primaryPlugin->unregisterTimer(k);
+                clapTimerIdToHandlerMap.erase(it);
+                auto res =  primaryPlugin->unregisterTimer(k);
+                return res;
             }
             it++;
         }
-        return false;
+
+        // Sigh. On stop we unregister twice.
+        _DBGCOUT << "Found no timer for " << _D(handler) << ". " << _D(clapTimerIdToHandlerMap.size())
+            << _D(registeredTimers.size()) << std::endl;
+        return true;
     }
     void fireTimer(clap_id id)
     {
-        for (const auto &[k, v] : timerHandlers)
+        for (const auto &[k, v] : clapTimerIdToHandlerMap)
         {
             if (k == id)
                 v->onTimer();
@@ -204,33 +261,37 @@ static bool everInit{false};
 
 void addLinuxVSTGUIPlugin(ClapSawDemo *that)
 {
-    _DBGCOUT << "addlingLinxuVSTGUIPlugin " << that << std::endl;
-
     if (!everInit)
     {
+        _DBGCOUT << "Creating VSTGUI RunLoop" << std::endl;
         VSTGUI::init(nullptr);
         VSTGUI::X11::RunLoop::init(VSTGUI::owned(new ClapRunLoop(that)));
+
+        // What is this?
+        VSTGUI::X11::RunLoop::init(nullptr);
         everInit = true;
 
         auto rl = VSTGUI::X11::RunLoop::get().get();
         auto crl = dynamic_cast<ClapRunLoop *>(rl);
 
         crl->initializationOver();
-        _DBGCOUT << _D(rl) << _D(crl) << std::endl;
     }
     else
     {
         auto rl = VSTGUI::X11::RunLoop::get().get();
+        if (!rl)
+        {
+            VSTGUI::X11::RunLoop::init(VSTGUI::owned(new ClapRunLoop(that)));
+            rl = VSTGUI::X11::RunLoop::get().get();
+        }
+
         auto crl = dynamic_cast<ClapRunLoop *>(rl);
-        _DBGCOUT << _D(rl) << _D(crl) << std::endl;
-        assert(crl);
         if (crl)
             crl->addPlugin(that);
     }
 }
 void removeLinuxVSTGUIPlugin(ClapSawDemo *that)
 {
-    _DBGCOUT << "remotelingLinxuVSTGUIPlugin " << that << std::endl;
     auto rl = VSTGUI::X11::RunLoop::get().get();
     auto crl = dynamic_cast<ClapRunLoop *>(rl);
 
