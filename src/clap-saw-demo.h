@@ -51,6 +51,7 @@ struct ClapSawDemoEditor;
 struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHandler::Terminate,
                                                   clap::helpers::CheckingLevel::Maximal>
 {
+    static constexpr int max_voices = 64;
     ClapSawDemo(const clap_host *host);
     ~ClapSawDemo();
 
@@ -159,8 +160,8 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     bool implementsVoiceInfo() const noexcept override { return true; }
     bool voiceInfoGet(clap_voice_info *info) noexcept override
     {
-        info->voice_capacity = 64;
-        info->voice_count = 64;
+        info->voice_capacity = max_voices;
+        info->voice_count = max_voices;
         info->flags = CLAP_VOICE_INFO_SUPPORTS_OVERLAPPING_NOTES;
         return true;
     }
@@ -185,6 +186,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void pushParamsToVoices();
     void handleNoteOn(int port_index, int channel, int key, int noteid);
     void handleNoteOff(int port_index, int channel, int key);
+    void activateVoice(SawDemoVoice &v, int port_index, int channel, int key, int noteid);
 
     /*
      * start and stop processing are called when you start and stop obviously.
@@ -340,8 +342,9 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         ampAttack{0.01}, ampRelease{0.2}, ampIsGate{0}, preFilterVCA{1.0}, filterMode{0};
     std::unordered_map<clap_id, double *> paramToValue;
 
-    // "Voice Management" is "have 64 and if you run out oh well"
-    std::array<SawDemoVoice, 64> voices;
+    // "Voice Management" is "randomly pick a voice to kill and put it in stolen voices"
+    std::array<SawDemoVoice, max_voices> voices;
+    std::vector<std::tuple<int, int, int, int>> terminatedVoices; // that's PCK ID
 };
 } // namespace sst::clap_saw_demo
 
