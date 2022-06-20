@@ -34,6 +34,8 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
     paramToValue[pmResonance] = &resonance;
     paramToValue[pmPreFilterVCA] = &preFilterVCA;
     paramToValue[pmFilterMode] = &filterMode;
+
+    terminatedVoices.reserve(max_voices * 4);
 }
 ClapSawDemo::~ClapSawDemo()
 {
@@ -445,33 +447,42 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * This allows hosts which support polyphonic modulation to terminate those
      * modulators, and it is also the reason we have the NEWLY_OFF state in addition
      * to the OFF state.
+     *
+     * Note that there are two ways to enter the terminatedVoices array. The first
+     * is here through natural state transition to NEWLY_OFF and the second is in
+     * handleNoteOn when we steal a voice.
      */
     for (auto &v : voices)
     {
         if (v.state == SawDemoVoice::NEWLY_OFF)
         {
-            auto ov = process->out_events;
+            terminatedVoices.emplace_back(v.portid, v.channel, v.key, v.note_id);
             v.state = SawDemoVoice::OFF;
-
-            auto evt = clap_event_note();
-            evt.header.size = sizeof(clap_event_note);
-            evt.header.type = (uint16_t)CLAP_EVENT_NOTE_END;
-            evt.header.time = process->frames_count - 1;
-            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-            evt.header.flags = 0;
-
-            evt.port_index = v.portid;
-            evt.channel = v.channel;
-            evt.key = v.key;
-            evt.note_id = v.note_id;
-            evt.velocity = 0.0;
-
-            ov->try_push(ov, &(evt.header));
-
-            dataCopyForUI.updateCount++;
-            dataCopyForUI.polyphony--;
         }
     }
+
+    for (const auto &[portid, channel, key, note_id] : terminatedVoices)
+    {
+        auto ov = process->out_events;
+        auto evt = clap_event_note();
+        evt.header.size = sizeof(clap_event_note);
+        evt.header.type = (uint16_t)CLAP_EVENT_NOTE_END;
+        evt.header.time = process->frames_count - 1;
+        evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+        evt.header.flags = 0;
+
+        evt.port_index = portid;
+        evt.channel = channel;
+        evt.key = key;
+        evt.note_id = note_id;
+        evt.velocity = 0.0;
+
+        ov->try_push(ov, &(evt.header));
+
+        dataCopyForUI.updateCount++;
+        dataCopyForUI.polyphony--;
+    }
+    terminatedVoices.clear();
 
     // We should have gotten all the events
     assert(!nextEvent);
@@ -700,37 +711,25 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
  */
 void ClapSawDemo::handleNoteOn(int port_index, int channel, int key, int noteid)
 {
+    bool foundVoice{false};
     for (auto &v : voices)
     {
         if (v.state == SawDemoVoice::OFF)
         {
-            v.unison = std::max(1, std::min(7, (int)unisonCount));
-            v.filterMode = (int)static_cast<int>(filterMode); // I could be less lazy obvs
-            v.note_id = noteid;
-            v.portid = port_index;
-            v.channel = channel;
-
-            v.uniSpread = unisonSpread;
-            v.oscDetune = oscDetune;
-            v.cutoff = cutoff;
-            v.res = resonance;
-            v.preFilterVCA = preFilterVCA;
-            v.ampRelease = scaleTimeParamToSeconds(ampRelease);
-            v.ampAttack = scaleTimeParamToSeconds(ampAttack);
-            v.ampGate = ampIsGate > 0.5;
-
-            // reset all the modulations
-            v.cutoffMod = 0;
-            v.oscDetuneMod = 0;
-            v.resMod = 0;
-            v.preFilterVCAMod = 0;
-            v.uniSpreadMod = 0;
-            v.volumeNoteExpressionValue = 0;
-            v.pitchNoteExpressionValue = 0;
-
-            v.start(key);
+            activateVoice(v, port_index, channel, key, noteid);
+            foundVoice = true;
             break;
         }
+    }
+
+    if (!foundVoice)
+    {
+        // We could steal oldest. If you want to do that toss in a PR to add age
+        // to the voice I guess. This is just a demo synth though.
+        auto idx = rand() % max_voices;
+        auto &v = voices[idx];
+        terminatedVoices.emplace_back(v.portid, v.channel, v.key, v.note_id);
+        activateVoice(v, port_index, channel, key, noteid);
     }
 
     dataCopyForUI.updateCount++;
@@ -749,8 +748,7 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
 {
     for (auto &v : voices)
     {
-        if (v.isPlaying() && v.key == n && v.portid == port_index &&
-            v.channel == channel)
+        if (v.isPlaying() && v.key == n && v.portid == port_index && v.channel == channel)
         {
             v.release();
         }
@@ -763,6 +761,35 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
         r.id = (uint32_t)n;
         toUiQ.try_enqueue(r);
     }
+}
+
+void ClapSawDemo::activateVoice(SawDemoVoice &v, int port_index, int channel, int key, int noteid)
+{
+    v.unison = std::max(1, std::min(7, (int)unisonCount));
+    v.filterMode = (int)static_cast<int>(filterMode);
+    v.note_id = noteid;
+    v.portid = port_index;
+    v.channel = channel;
+
+    v.uniSpread = unisonSpread;
+    v.oscDetune = oscDetune;
+    v.cutoff = cutoff;
+    v.res = resonance;
+    v.preFilterVCA = preFilterVCA;
+    v.ampRelease = scaleTimeParamToSeconds(ampRelease);
+    v.ampAttack = scaleTimeParamToSeconds(ampAttack);
+    v.ampGate = ampIsGate > 0.5;
+
+    // reset all the modulations
+    v.cutoffMod = 0;
+    v.oscDetuneMod = 0;
+    v.resMod = 0;
+    v.preFilterVCAMod = 0;
+    v.uniSpreadMod = 0;
+    v.volumeNoteExpressionValue = 0;
+    v.pitchNoteExpressionValue = 0;
+
+    v.start(key);
 }
 
 void ClapSawDemo::pushParamsToVoices()
@@ -876,10 +903,7 @@ bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
     auto res = _host.timerSupportRegister(interv, id);
     return res;
 }
-bool ClapSawDemo::unregisterTimer(clap_id id)
-{
-    return _host.timerSupportUnregister(id);
-}
+bool ClapSawDemo::unregisterTimer(clap_id id) { return _host.timerSupportUnregister(id); }
 bool ClapSawDemo::registerPosixFd(int fd)
 {
     return _host.posixFdSupportRegister(fd, CLAP_POSIX_FD_READ | CLAP_POSIX_FD_WRITE |
