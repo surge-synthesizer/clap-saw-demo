@@ -107,6 +107,11 @@ void ClapSawDemo::guiDestroy() noexcept
     // We need to split this because of linux
     editor->haltIdleTimer();
 
+#if !IS_LINUX
+    // Oh linux is still giving me lifecycle problems... get back to this
+    editor->getFrame()->close();
+#endif
+
 #if IS_LINUX
     removeLinuxVSTGUIPlugin(this);
 #endif
@@ -204,8 +209,7 @@ bool ClapSawDemo::guiGetSize(uint32_t *width, uint32_t *height) noexcept
 bool ClapSawDemo::guiAdjustSize(uint32_t *width, uint32_t *height) noexcept
 {
     assert(editor);
-    _DBGCOUT << _D(width) << _D(height) << std::endl;
-
+    // If I wanted to I could apply a constraint here, but I choose not to.
     return true;
 }
 
@@ -249,8 +253,6 @@ ClapSawDemoEditor::ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &i,
 // Create and add our UI objects with a callback tag. Completely standard VSTGUI
 void ClapSawDemoEditor::setupUI()
 {
-    _DBGMARK;
-
     auto scaleFont = [this](VSTGUI::CFontRef font)
     {
         font->setSize(font->getSize() * uiScale);

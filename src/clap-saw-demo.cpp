@@ -874,12 +874,10 @@ void ClapSawDemo::editorParamsFlush() { _host.paramsRequestFlush(); }
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
     auto res = _host.timerSupportRegister(interv, id);
-    _DBGCOUT << "-----------------++++>>>>>>>  REGISTER " << *id << std::endl;
     return res;
 }
 bool ClapSawDemo::unregisterTimer(clap_id id)
 {
-    _DBGCOUT << "-----------------++++<<<<<<  UNREGISTER " << id << std::endl;
     return _host.timerSupportUnregister(id);
 }
 bool ClapSawDemo::registerPosixFd(int fd)
