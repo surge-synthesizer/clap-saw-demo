@@ -25,7 +25,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
 
     ClapSawDemoEditor(ClapSawDemo::SynthToUI_Queue_t &, ClapSawDemo::UIToSynth_Queue_t &,
                       const ClapSawDemo::DataCopyForUI &, std::function<void()>);
-    ~ClapSawDemoEditor();
+    ~ClapSawDemoEditor() override;
 
     void haltIdleTimer();
 
@@ -46,6 +46,9 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
 
     };
 
+    void setScale(double scale);
+    inline int sc(int i) const { return int(i * uiScale); }
+
     void setupUI();
     uint32_t paramIdFromTag(int32_t tag);
 
@@ -55,10 +58,13 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     VSTGUI::CVSTGUITimer *idleTimer{nullptr};
 
   private:
+    double uiScale{1.0};
+
     uint32_t lastDataUpdate{0};
     ClapSawDemoBackground *backgroundRender{nullptr};
     // These are all weak references owned by the frame
-    VSTGUI::CTextLabel *topLabel{nullptr}, *bottomLabel{nullptr}, *statusLabel{nullptr};
+    VSTGUI::CTextLabel *topLabel{nullptr}, *repoLabel{nullptr},
+        *bottomLabel{nullptr}, *statusLabel{nullptr};
 
     VSTGUI::CTextLabel *ampLabel{nullptr};
     VSTGUI::CCheckBox *ampToggle{nullptr};
