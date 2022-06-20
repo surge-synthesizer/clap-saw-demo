@@ -243,15 +243,11 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void guiDestroy() noexcept override;
     bool guiSetParent(const clap_window *window) noexcept override;
 
+    bool guiSetScale(double scale) noexcept override;
     bool guiCanResize() const noexcept override { return true; }
     bool guiAdjustSize(uint32_t *width, uint32_t *height) noexcept override;
     bool guiSetSize(uint32_t width, uint32_t height) noexcept override;
-    bool guiGetSize(uint32_t *width, uint32_t *height) noexcept override
-    {
-        *width = GUI_DEFAULT_W;
-        *height = GUI_DEFAULT_H;
-        return true;
-    }
+    bool guiGetSize(uint32_t *width, uint32_t *height) noexcept override;
 
     // Setting this atomic to true will force a push of all current engine
     // params to ui using the queue mechanism
