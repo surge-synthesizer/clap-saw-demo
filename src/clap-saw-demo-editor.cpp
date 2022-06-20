@@ -117,14 +117,7 @@ void ClapSawDemo::guiDestroy() noexcept
 #endif
 
     if (editor)
-    {
-        auto frame = editor->getFrame();
-        if (frame)
-        {
-            frame->close();
-        }
         delete editor;
-    }
     editor = nullptr;
 }
 
@@ -175,11 +168,20 @@ bool ClapSawDemo::guiSetParent(const clap_window *window) noexcept
     return true;
 }
 
+/*
+ * guiSetScale is the core API that allows the Host to set the absolute GUI
+ * scaling factor, and override any OS info. This is important to allow the UI
+ * to correctly reflect what has been specified by the Host and not have to
+ * work out the users intentions through some sort of magic.
+ *
+ * Obviously, the value will depend on how the host chooses to implement it.
+ * The value is normalised, with 1.0 representing 100% scaling.
+ */
 bool ClapSawDemo::guiSetScale(double scale) noexcept
 {
     assert(editor);
     _DBGCOUT << _D(scale) << std::endl;
-    editor->setScale(scale);
+    editor->setUIScale(scale);
     return true;
 }
 
@@ -197,11 +199,15 @@ bool ClapSawDemo::guiSetSize(uint32_t width, uint32_t height) noexcept
     return true;
 }
 
+/*
+ * Returns the size of the UI window, presumable so a host can better layout plugin UIs
+ * if grouped together.
+ */
 bool ClapSawDemo::guiGetSize(uint32_t *width, uint32_t *height) noexcept
 {
     assert(editor);
-    *width = editor->sc(GUI_DEFAULT_W);
-    *height = editor->sc(GUI_DEFAULT_H);
+    *width = editor->applyUIScale(GUI_DEFAULT_W);
+    *height = editor->applyUIScale(GUI_DEFAULT_H);
     return true;
 }
 
@@ -264,7 +270,7 @@ void ClapSawDemoEditor::setupUI()
     scaleFont(VSTGUI::kNormalFontSmaller);
 
     // Resize as we should now have our scale
-    frame->setSize(sc(ClapSawDemo::GUI_DEFAULT_W), sc(ClapSawDemo::GUI_DEFAULT_H));
+    frame->setSize(applyUIScale(ClapSawDemo::GUI_DEFAULT_W), applyUIScale(ClapSawDemo::GUI_DEFAULT_H));
     frame->invalid();
 
     backgroundRender = new ClapSawDemoBackground(
@@ -273,7 +279,7 @@ void ClapSawDemoEditor::setupUI()
     frame->addView(backgroundRender);
 
 
-    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), sc(40)),
+    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), applyUIScale(40)),
                                     "Clap Saw Synth Demo");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontVeryBig);
@@ -282,7 +288,7 @@ void ClapSawDemoEditor::setupUI()
     frame->addView(topLabel);
 
     l = new VSTGUI::CTextLabel(
-        VSTGUI::CRect(VSTGUI::CPoint(0, sc(40)), VSTGUI::CPoint(getFrame()->getWidth(), sc(20))),
+        VSTGUI::CRect(VSTGUI::CPoint(0, applyUIScale(40)), VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
         "poly=0");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFont);
@@ -290,8 +296,8 @@ void ClapSawDemoEditor::setupUI()
     statusLabel = l;
     frame->addView(statusLabel);
 
-    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - sc(40)),
-                                             VSTGUI::CPoint(getFrame()->getWidth(), sc(20))),
+    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - applyUIScale(40)),
+                                             VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
                                "https://github.com/surge-synthesizer/clap-saw-demo");
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontSmall);
@@ -301,8 +307,8 @@ void ClapSawDemoEditor::setupUI()
 
     auto sl = std::string("MIT License; CLAP v.") + std::to_string(CLAP_VERSION_MAJOR) + "." +
               std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION);
-    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - sc(20)),
-                                             VSTGUI::CPoint(getFrame()->getWidth(), sc(20))),
+    l = new VSTGUI::CTextLabel(VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - applyUIScale(20)),
+                                             VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
                                sl.c_str());
     l->setTransparency(true);
     l->setFont(VSTGUI::kNormalFontSmaller);
@@ -312,9 +318,9 @@ void ClapSawDemoEditor::setupUI()
 
     auto mkSliderWithLabel = [this](int x, int y, int tag, const std::string &label)
     {
-        auto q = new VSTGUI::CSlider(VSTGUI::CRect(VSTGUI::CPoint(sc(x), sc(y)),
-                                                   VSTGUI::CPoint(sc(25), sc(150))),
-                                     this, tag, 0, sc(150), nullptr, nullptr);
+        auto q = new VSTGUI::CSlider(VSTGUI::CRect(VSTGUI::CPoint(applyUIScale(x), applyUIScale(y)),
+                                                   VSTGUI::CPoint(applyUIScale(25), applyUIScale(150))),
+                                     this, tag, 0, applyUIScale(150), nullptr, nullptr);
         q->setMin(0);
         q->setMax(1);
         q->setDrawStyle(VSTGUI::CSlider::kDrawFrame | VSTGUI::CSlider::kDrawValue |
@@ -323,8 +329,8 @@ void ClapSawDemoEditor::setupUI()
         frame->addView(q);
 
         auto l = new VSTGUI::CTextLabel(
-            VSTGUI::CRect(VSTGUI::CPoint(sc(x) - sc(10), sc(y) + sc(155)),
-                          VSTGUI::CPoint(sc(45), sc(15))));
+            VSTGUI::CRect(VSTGUI::CPoint(applyUIScale(x) - applyUIScale(10), applyUIScale(y) + applyUIScale(155)),
+                          VSTGUI::CPoint(applyUIScale(45), applyUIScale(15))));
         l->setText(label.c_str());
         l->setFont(VSTGUI::kNormalFont);
 
@@ -386,14 +392,17 @@ void ClapSawDemoEditor::resize()
     backgroundRender->setViewSize(VSTGUI::CRect(0, 0, w, h));
     backgroundRender->invalid();
 
-    topLabel->setViewSize(VSTGUI::CRect(0, 0, w, sc(40)));
+    topLabel->setViewSize(VSTGUI::CRect(0, 0, w, applyUIScale(40)));
     topLabel->invalid();
 
-    statusLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, sc(40)), VSTGUI::CPoint(w, sc(20))));
+    statusLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, applyUIScale(40)),
+                                           VSTGUI::CPoint(w, applyUIScale(20))));
     statusLabel->invalid();
-    repoLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - sc(40)), VSTGUI::CPoint(w, sc(20))));
+    repoLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - applyUIScale(40)),
+                                         VSTGUI::CPoint(w, applyUIScale(20))));
     repoLabel->invalid();
-    bottomLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - sc(20)), VSTGUI::CPoint(w, sc(20))));
+    bottomLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - applyUIScale(20)),
+                                           VSTGUI::CPoint(w, applyUIScale(20))));
     bottomLabel->invalid();
 }
 
@@ -555,7 +564,7 @@ void ClapSawDemoEditor::idle()
         backgroundRender->invalid();
     }
 }
-void ClapSawDemoEditor::setScale(double scale)
+void ClapSawDemoEditor::setUIScale(double scale)
 {
     if (scale>0)
     {

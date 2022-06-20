@@ -46,8 +46,8 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
 
     };
 
-    void setScale(double scale);
-    inline int sc(int i) const { return int(i * uiScale); }
+    void setUIScale(double scale);
+    inline int applyUIScale(int i) const { return int(i * uiScale); }
 
     void setupUI();
     uint32_t paramIdFromTag(int32_t tag);
