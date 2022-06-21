@@ -583,6 +583,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
             toUiQ.try_enqueue(r);
         }
     }
+    break;
     /*
      * CLAP_EVENT_PARAM_MOD provides both monophonic and polyphonic modulation.
      * We do this by seeing which parameter is modulated then adjusting the
