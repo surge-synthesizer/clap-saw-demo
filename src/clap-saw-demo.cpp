@@ -49,7 +49,7 @@ const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SY
 clap_plugin_descriptor ClapSawDemo::desc = {CLAP_VERSION,
                                             "org.surge-synth-team.clap-saw-demo",
                                             "Clap Saw Demo Synth",
-                                            "Surge Synth team",
+                                            "Surge Synth Team",
                                             "https://surge-synth-team.org",
                                             "",
                                             "",
