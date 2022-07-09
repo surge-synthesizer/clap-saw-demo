@@ -15,6 +15,7 @@
 #include <clap/helpers/host-proxy.hh>
 #include <clap/helpers/host-proxy.hxx>
 #include <iomanip>
+#include <locale>
 
 namespace sst::clap_saw_demo
 {
@@ -244,16 +245,6 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
 }
 
 /*
- * If the processing loop isn't running, the call to requestParamFlush from the UI will
- * result in this being called on the main thread, and generating all the appropriate
- * param updates. As of BWS43b6, this is not being called and so is unimplemented.
- */
-void ClapSawDemo::paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept
-{
-    _DBGMARK;
-}
-
-/*
  * Stereo out, Midi in, in a pretty obvious way.
  * The only trick is the idi in also has NOTE_DIALECT_CLAP which provides us
  * with options on note expression and the like.
@@ -265,6 +256,7 @@ bool ClapSawDemo::audioPortsInfo(uint32_t index, bool isInput,
         return false;
 
     info->id = 0;
+    info->in_place_pair = CLAP_INVALID_ID;
     strncpy(info->name, "main", sizeof(info->name));
     info->flags = CLAP_AUDIO_PORT_IS_MAIN;
     info->channel_count = 2;
@@ -315,69 +307,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * The UI can send us gesture begin/end events which translate in to a
      * `clap_event_param_gesture` or value adjustments.
      */
-    bool uiAdjustedValues{false};
-    ClapSawDemo::FromUI r;
-    while (fromUiQ.try_dequeue(r))
-    {
-        switch (r.type)
-        {
-        case FromUI::BEGIN_EDIT:
-        case FromUI::END_EDIT:
-        {
-            auto ov = process->out_events;
-            auto evt = clap_event_param_gesture();
-            evt.header.size = sizeof(clap_event_param_gesture);
-            evt.header.type = (r.type == FromUI::BEGIN_EDIT ? CLAP_EVENT_PARAM_GESTURE_BEGIN
-                                                            : CLAP_EVENT_PARAM_GESTURE_END);
-            evt.header.time = 0;
-            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-            evt.header.flags = 0;
-            evt.param_id = r.id;
-            ov->try_push(ov, &evt.header);
-
-            break;
-        }
-        case FromUI::ADJUST_VALUE:
-        {
-            // So set my value
-            *paramToValue[r.id] = r.value;
-
-            // But we also need to generate outbound message to the host
-            auto ov = process->out_events;
-            auto evt = clap_event_param_value();
-            evt.header.size = sizeof(clap_event_param_value);
-            evt.header.type = (uint16_t)CLAP_EVENT_PARAM_VALUE;
-            evt.header.time = 0; // for now
-            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
-            evt.header.flags = 0;
-            evt.param_id = r.id;
-            evt.value = r.value;
-
-            ov->try_push(ov, &(evt.header));
-
-            uiAdjustedValues = true;
-        }
-        }
-    }
-
-    // Similarly we need to push values to a UI on startup
-    if (refreshUIValues && editor)
-    {
-        _DBGCOUT << "Pushing a refresh of UI values to the editor" << std::endl;
-        refreshUIValues = false;
-
-        for (const auto &[k, v] : paramToValue)
-        {
-            auto r = ToUI();
-            r.type = ToUI::PARAM_VALUE;
-            r.id = k;
-            r.value = *v;
-            toUiQ.try_enqueue(r);
-        }
-    }
-
-    if (uiAdjustedValues)
-        pushParamsToVoices();
+    handleEventsFromUIQueue(process->out_events);
 
     /*
      * Stage 2: Create the AUDIO output and process events
@@ -706,6 +636,71 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
     }
 }
 
+void ClapSawDemo::handleEventsFromUIQueue(const clap_output_events_t *ov)
+{
+    bool uiAdjustedValues{false};
+    ClapSawDemo::FromUI r;
+    while (fromUiQ.try_dequeue(r))
+    {
+        switch (r.type)
+        {
+        case FromUI::BEGIN_EDIT:
+        case FromUI::END_EDIT:
+        {
+            auto evt = clap_event_param_gesture();
+            evt.header.size = sizeof(clap_event_param_gesture);
+            evt.header.type = (r.type == FromUI::BEGIN_EDIT ? CLAP_EVENT_PARAM_GESTURE_BEGIN
+                                                            : CLAP_EVENT_PARAM_GESTURE_END);
+            evt.header.time = 0;
+            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+            evt.header.flags = 0;
+            evt.param_id = r.id;
+            ov->try_push(ov, &evt.header);
+
+            break;
+        }
+        case FromUI::ADJUST_VALUE:
+        {
+            // So set my value
+            *paramToValue[r.id] = r.value;
+
+            // But we also need to generate outbound message to the host
+            auto evt = clap_event_param_value();
+            evt.header.size = sizeof(clap_event_param_value);
+            evt.header.type = (uint16_t)CLAP_EVENT_PARAM_VALUE;
+            evt.header.time = 0; // for now
+            evt.header.space_id = CLAP_CORE_EVENT_SPACE_ID;
+            evt.header.flags = 0;
+            evt.param_id = r.id;
+            evt.value = r.value;
+
+            ov->try_push(ov, &(evt.header));
+
+            uiAdjustedValues = true;
+        }
+        }
+    }
+
+    // Similarly we need to push values to a UI on startup
+    if (refreshUIValues && editor)
+    {
+        _DBGCOUT << "Pushing a refresh of UI values to the editor" << std::endl;
+        refreshUIValues = false;
+
+        for (const auto &[k, v] : paramToValue)
+        {
+            auto r = ToUI();
+            r.type = ToUI::PARAM_VALUE;
+            r.id = k;
+            r.value = *v;
+            toUiQ.try_enqueue(r);
+        }
+    }
+
+    if (uiAdjustedValues)
+        pushParamsToVoices();
+}
+
 /*
  * The note on, note off, and push params to voices implementations are, basically, completely
  * uninteresting.
@@ -793,6 +788,28 @@ void ClapSawDemo::activateVoice(SawDemoVoice &v, int port_index, int channel, in
     v.start(key);
 }
 
+/*
+ * If the processing loop isn't running, the call to requestParamFlush from the UI will
+ * result in this being called on the main thread, and generating all the appropriate
+ * param updates.
+ */
+void ClapSawDemo::paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept
+{
+    auto sz = in->size(in);
+
+    // This pointer is the sentinel to our next event which we advance once an event is processed
+    for (auto e = 0U; e < sz; ++e)
+    {
+        auto nextEvent = in->get(in, e);
+        handleInboundEvent(nextEvent);
+    }
+
+    handleEventsFromUIQueue(out);
+
+    // We will never generate a note end event with processing active, and we have no midi
+    // output, so we are done.
+}
+
 void ClapSawDemo::pushParamsToVoices()
 {
     for (auto &v : voices)
@@ -829,10 +846,12 @@ bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
     // you should write a less dumb serializer of course. On and I bet this might have
     // a locale problem?
     std::ostringstream oss;
+    auto cloc = std::locale("C");
+    oss.imbue(cloc);
     oss << "STREAM-VERSION-1;";
     for (const auto &[id, val] : paramToValue)
     {
-        oss << id << "=" << *val << ";";
+        oss << id << "=" << std::setw(30) << std::setprecision(20) << *val << ";";
     }
     _DBGCOUT << oss.str() << std::endl;
 
@@ -884,7 +903,10 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
         if (epos == std::string::npos)
             continue; // oh well
         auto id = std::atoi(i.substr(0, epos).c_str());
-        auto val = std::atof(i.substr(epos + 1).c_str());
+        double val = 0.0;
+        std::istringstream istr(i.substr(epos + 1));
+        istr.imbue(std::locale("C"));
+        istr >> val;
 
         *(paramToValue[(paramIds)id]) = val;
     }
