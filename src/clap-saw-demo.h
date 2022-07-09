@@ -124,15 +124,13 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      * For instance we model filter cutoff in 12-TET MIDI Note space, so the value
      * "60" of pmCutoff shows as "261.6 hz" and "69" (concert A) as "440 hz". Similarly
      * this is where we show our time scaling for our attack and release, filter type,
-     * and so on.
+     * and so on. If you want, you can also implement paramsTextToValue which is the
+     * inverse function, for hosts which allow user typeins. In this example, we choose
+     * to not implement that.
      */
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override;
 
-  protected:
-    void paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept override;
-
-  public:
     // Convert 0-1 linear into 0-4s exponential
     float scaleTimeParamToSeconds(float param);
 
@@ -187,6 +185,15 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     void handleNoteOn(int port_index, int channel, int key, int noteid);
     void handleNoteOff(int port_index, int channel, int key);
     void activateVoice(SawDemoVoice &v, int port_index, int channel, int key, int noteid);
+    void handleEventsFromUIQueue(const clap_output_events_t *);
+
+    /*
+     * In addition to ::process, the plugin should implement ::paramsFlush. ::paramsFlush will be
+     * called when processing isn't active (no audio being generated, etc...) but the host or UI
+     * wants to update a value - usually a parameter value. In effect it looks like a version
+     * of process with no audio buffers.
+     */
+    void paramsFlush(const clap_input_events *in, const clap_output_events *out) noexcept override;
 
     /*
      * start and stop processing are called when you start and stop obviously.
