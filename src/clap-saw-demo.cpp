@@ -872,12 +872,23 @@ bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
 bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 {
     // Again, see the comment above on 'this is terrible'
-    char buffer[4096];
+    static constexpr uint32_t maxSize = 4096 * 8, chunkSize = 256;
+    char buffer[maxSize];
     char *bp = &(buffer[0]);
-    int64_t rd;
-    while ((rd = stream->read(stream, bp, 256)) > 0)
+    int64_t rd{0};
+    int64_t totalRd{0};
+
+    while ((rd = stream->read(stream, bp, chunkSize)) > 0)
     {
         bp += rd;
+        totalRd += rd;
+        if (totalRd >= maxSize - chunkSize - 1)
+        {
+            _DBGCOUT << "Invalid stream: Why did you send me so many bytes!" << std::endl;
+            // What the heck? You sdent me more than 32kb of data for a 700 byte string?
+            // That means my next chunk read will blow out memory so....
+            return false;
+        }
     }
 
     auto dat = std::string(buffer);
