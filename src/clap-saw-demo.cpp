@@ -878,6 +878,7 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
     int64_t rd{0};
     int64_t totalRd{0};
 
+    buffer[0] = 0;
     while ((rd = stream->read(stream, bp, chunkSize)) > 0)
     {
         bp += rd;
@@ -890,6 +891,10 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
             return false;
         }
     }
+
+    // Make sure I'm null terminated in case you hand me total garbage
+    if (totalRd < maxSize)
+        buffer[totalRd] = 0;
 
     auto dat = std::string(buffer);
     _DBGCOUT << dat << std::endl;
