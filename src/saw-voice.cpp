@@ -119,6 +119,10 @@ void SawDemoVoice::step()
         for (int q = -2; q <= 0; ++q)
         {
             double ph = phase[i] + q * dPhase[i];
+
+            // Bind phase to 0...1. Lots of ways to do this
+            ph = ph - floor(ph);
+
             // Our calculation assumes phase in -1,1 and this phase is
             // in 0 1 so
             ph = ph * 2 - 1;
