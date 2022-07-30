@@ -934,7 +934,10 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 /*
  * A simple passthrough. Put it here to allow the template mechanics to see the impl.
  */
-void ClapSawDemo::editorParamsFlush() { _host.paramsRequestFlush(); }
+void ClapSawDemo::editorParamsFlush() {
+    if (_host.canUseParams())
+        _host.paramsRequestFlush();
+}
 
 #if IS_LINUX
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
