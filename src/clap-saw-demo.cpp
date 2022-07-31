@@ -299,7 +299,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 {
     // If I have no outputs, do nothing
     if (process->audio_outputs_count <= 0)
-        return CLAP_PROCESS_CONTINUE;
+        return CLAP_PROCESS_SLEEP;
 
     /*
      * Stage 1:
@@ -416,7 +416,19 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
     // We should have gotten all the events
     assert(!nextEvent);
-    return CLAP_PROCESS_CONTINUE;
+
+    // A little optimization - if we have any active voices continue
+    for (const auto &v : voices)
+    {
+        if (v.state != SawDemoVoice::OFF)
+        {
+            return CLAP_PROCESS_CONTINUE;
+        }
+    }
+
+    // Otherwise we have no voices - we can return CLAP_PROCESS_SLEEP until we get the next event
+    // And our host can optionally skip processing
+    return CLAP_PROCESS_SLEEP;
 }
 
 /*
@@ -934,7 +946,8 @@ bool ClapSawDemo::stateLoad(const clap_istream *stream) noexcept
 /*
  * A simple passthrough. Put it here to allow the template mechanics to see the impl.
  */
-void ClapSawDemo::editorParamsFlush() {
+void ClapSawDemo::editorParamsFlush()
+{
     if (_host.canUseParams())
         _host.paramsRequestFlush();
 }
