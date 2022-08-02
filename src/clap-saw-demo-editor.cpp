@@ -387,6 +387,13 @@ void ClapSawDemoEditor::haltIdleTimer()
 // We add this resize method and call it from setSize to scale the background and recenter labels
 void ClapSawDemoEditor::resize()
 {
+    /*
+     * guiSetSize can be called before guiSetParent and guiSetParent is where we
+     * create our sub-components. So be defensive here.
+     */
+    if (!backgroundRender)
+        return;
+
     auto w = getFrame()->getWidth();
     auto h = getFrame()->getHeight();
     backgroundRender->setViewSize(VSTGUI::CRect(0, 0, w, h));
