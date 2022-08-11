@@ -41,7 +41,7 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 #endif
 
 #if IS_LINUX
-    if (strcmp(api, CLAP_WINDOW_API_X11) == 0)
+    if (_host.canUseTimerSupport() && _host.canUsePosixFdSupport() && strcmp(api, CLAP_WINDOW_API_X11) == 0)
         return true;
 #endif
 
