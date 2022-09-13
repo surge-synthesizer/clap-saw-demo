@@ -12,6 +12,7 @@
 #include "vstgui/lib/platform/linux/x11platform.h"
 #include <map>
 #include "linux-vstgui-adapter.h"
+#include "clap/helpers/host-proxy.hxx"
 #endif
 
 #if IS_WIN
@@ -307,7 +308,7 @@ void ClapSawDemoEditor::setupUI()
     frame->addView(repoLabel);
 
     auto sl = std::string("MIT License; CLAP v.") + std::to_string(CLAP_VERSION_MAJOR) + "." +
-              std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION);
+              std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION) + "; Built: " + __DATE__ + " @ " + __TIME__;
     l = new VSTGUI::CTextLabel(
         VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - applyUIScale(20)),
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
