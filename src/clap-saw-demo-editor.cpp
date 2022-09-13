@@ -10,6 +10,7 @@
 #if IS_LINUX
 #include "vstgui/lib/platform/platform_x11.h"
 #include "vstgui/lib/platform/linux/x11platform.h"
+#include "clap/helpers/host-proxy.hxx"
 #include <map>
 #include "linux-vstgui-adapter.h"
 #endif
