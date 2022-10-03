@@ -53,7 +53,7 @@ const CLAP_EXPORT struct clap_plugin_factory clap_saw_demo_factory = {
     sst::clap_saw_demo::pluginentry::clap_get_plugin_descriptor,
     sst::clap_saw_demo::pluginentry::clap_create_plugin,
 };
-static const void *get_factory(const char *factory_id) { return &clap_saw_demo_factory; }
+static const void *get_factory(const char *factory_id) { return (!strcmp(factory_id,CLAP_PLUGIN_FACTORY_ID)) ? &clap_saw_demo_factory : nullptr; }
 
 // clap_init and clap_deinit are required to be fast, but we have nothing we need to do here
 bool clap_init(const char *p) { return true; }
