@@ -26,6 +26,10 @@ add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
 add_subdirectory(libs/vstgui EXCLUDE_FROM_ALL)
+if (APPLE)
+  target_compile_options(vstgui PRIVATE -Wno-deprecated-declarations)
+endif()
+
 
 add_library(${PROJECT_NAME} MODULE
         src/clap-saw-demo.cpp
