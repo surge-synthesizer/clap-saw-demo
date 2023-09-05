@@ -240,7 +240,8 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
     }
     }
 
-    strncpy(display, sValue.c_str(), CLAP_NAME_SIZE);
+    strncpy(display, sValue.c_str(), size);
+    display[size-1] = '\0';
     return true;
 }
 
