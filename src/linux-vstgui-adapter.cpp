@@ -34,25 +34,25 @@ namespace sst::clap_saw_demo
  *
  * 1. A map of what VSTGUi has registered with me
  * 2. A handler for plugin changes
- * 3. And combining those, registering and registering the event handlers with the plugin in question
+ * 3. And combining those, registering and registering the event handlers with the plugin in
+ * question
  *
  */
 struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenceCounted
 {
     std::unordered_set<ClapSawDemo *> plugins;
     ClapSawDemo *primaryPlugin{nullptr};
-    ClapRunLoop(ClapSawDemo *p)  {
+    ClapRunLoop(ClapSawDemo *p)
+    {
         _DBGCOUT << "Creating ClapRunLoop" << std::endl;
         addPlugin(p);
     }
-    ~ClapRunLoop() {
+    ~ClapRunLoop()
+    {
         _DBGCOUT << _D(registeredTimers.size()) << _D(registeredEventHandlers.size()) << std::endl;
     }
 
-    void initializationOver()
-    {
-        _DBGMARK;
-    }
+    void initializationOver() { _DBGMARK; }
 
     void setAsPrimaryPlugin(ClapSawDemo *p)
     {
@@ -69,7 +69,8 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         {
             clap_id id;
             primaryPlugin->registerTimer(interval, &id);
-            _DBGCOUT << "    Re-registering Timer : " << _D(handler) << _D(interval) << " at " << _D(id) << std::endl;
+            _DBGCOUT << "    Re-registering Timer : " << _D(handler) << _D(interval) << " at "
+                     << _D(id) << std::endl;
             clapTimerIdToHandlerMap[id] = handler;
         }
     }
@@ -203,7 +204,7 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
         _DBGCOUT << "unregsiterTimer" << _D(handler) << std::endl;
 
         auto rit = registeredTimers.begin();
-        while( rit != registeredTimers.end())
+        while (rit != registeredTimers.end())
         {
             if (rit->second == handler)
             {
@@ -221,15 +222,15 @@ struct ClapRunLoop : public VSTGUI::X11::IRunLoop, public VSTGUI::AtomicReferenc
             {
                 _DBGCOUT << "Found a timer handler to erase " << k << std::endl;
                 clapTimerIdToHandlerMap.erase(it);
-                auto res =  primaryPlugin->unregisterTimer(k);
+                auto res = primaryPlugin->unregisterTimer(k);
                 return res;
             }
             it++;
         }
 
         // Sigh. On stop we unregister twice.
-        _DBGCOUT << "Found no timer for " << _D(handler) << ". " << _D(clapTimerIdToHandlerMap.size())
-            << _D(registeredTimers.size()) << std::endl;
+        _DBGCOUT << "Found no timer for " << _D(handler) << ". "
+                 << _D(clapTimerIdToHandlerMap.size()) << _D(registeredTimers.size()) << std::endl;
         return true;
     }
     void fireTimer(clap_id id)
@@ -249,7 +250,7 @@ void ClapSawDemo::onTimer(clap_id timerId) noexcept
     if (clp)
         clp->fireTimer(timerId);
 }
-void ClapSawDemo::onPosixFd(int fd, int flags) noexcept
+void ClapSawDemo::onPosixFd(int fd, clap_posix_fd_flags_t flags) noexcept
 {
     auto rlp = VSTGUI::X11::RunLoop::get().get();
     auto clp = reinterpret_cast<ClapRunLoop *>(rlp);
@@ -299,13 +300,9 @@ void removeLinuxVSTGUIPlugin(ClapSawDemo *that)
     {
         crl->removePlugin(that);
     }
-
 }
 
-void exitLinuxVSTGUI()
-{
-    VSTGUI::X11::RunLoop::exit();
-}
+void exitLinuxVSTGUI() { VSTGUI::X11::RunLoop::exit(); }
 #endif
 
 } // namespace sst::clap_saw_demo
