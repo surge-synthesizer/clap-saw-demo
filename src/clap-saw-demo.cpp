@@ -241,8 +241,58 @@ bool ClapSawDemo::paramsValueToText(clap_id paramId, double value, char *display
     }
 
     strncpy(display, sValue.c_str(), size);
-    display[size-1] = '\0';
+    display[size - 1] = '\0';
     return true;
+}
+
+bool ClapSawDemo::paramsTextToValue(clap_id paramId, const char *display, double *value) noexcept
+{
+    switch (paramId)
+    {
+    case pmResonance:
+    case pmPreFilterVCA:
+        *value = std::clamp(std::atof(display), 0., 1.);
+        return true;
+        break;
+    case pmAmpRelease:
+    case pmAmpAttack:
+        *value = scaleSecondsToTimeParam(std::atof(display));
+        return true;
+        break;
+    case pmUnisonCount:
+    {
+        *value = std::clamp(std::atoi(display), 1, 7);
+        return true;
+        break;
+    }
+    case pmUnisonSpread:
+        *value = std::clamp(std::atof(display), 0., 100.);
+        return true;
+        break;
+
+    case pmOscDetune:
+        *value = std::clamp(std::atof(display), -200.0, 200.0);
+        return true;
+        break;
+    case pmCutoff:
+    {
+        // auto co = 440 * pow(2.0, (value - 69) / 12);
+        // log2(co/440) = (value - 69)/12
+        // value = log2(co/440) * 12 + 69
+
+        auto cohz = std::clamp(std::atof(display), 1.0, 25000.0);
+        *value = log2(cohz / 440.0) * 12 + 69;
+        return true;
+        break;
+    }
+        // Skip these two. You get the idea
+    case pmFilterMode:
+    case pmAmpIsGate:
+        return false;
+        break;
+    }
+
+    return false;
 }
 
 /*
@@ -850,6 +900,18 @@ float ClapSawDemo::scaleTimeParamToSeconds(float param)
     auto scaleTime = std::clamp((param - 2.0 / 3.0) * 6, -100.0, 2.0);
     auto res = powf(2.f, scaleTime);
     return res;
+}
+
+float ClapSawDemo::scaleSecondsToTimeParam(float seconds)
+{
+    seconds = std::max(seconds, 0.000001f);
+    auto scaleTime = std::clamp((float)log2(seconds), -100.f, 2.f);
+
+    // scaletime = (param - 2 / 3) * 6 so
+    // param = scaleTime / 6 + 2/ 3
+
+    auto param = scaleTime / 6 * 2.0 / 3.0;
+    return param;
 }
 
 bool ClapSawDemo::stateSave(const clap_ostream *stream) noexcept
