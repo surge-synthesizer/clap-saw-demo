@@ -131,8 +131,13 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     bool paramsValueToText(clap_id paramId, double value, char *display,
                            uint32_t size) noexcept override;
 
+  protected:
+    bool paramsTextToValue(clap_id paramId, const char *display, double *value) noexcept override;
+
+  public:
     // Convert 0-1 linear into 0-4s exponential
     float scaleTimeParamToSeconds(float param);
+    float scaleSecondsToTimeParam(float seconds);
 
     /*
      * Many CLAP plugins will want input and output audio and note ports, although
