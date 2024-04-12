@@ -905,7 +905,7 @@ float ClapSawDemo::scaleTimeParamToSeconds(float param)
 float ClapSawDemo::scaleSecondsToTimeParam(float seconds)
 {
     seconds = std::max(seconds, 0.000001f);
-    auto scaleTime = std::clamp(log2(seconds), -100.f, 2.f);
+    auto scaleTime = std::clamp((float)log2(seconds), -100.f, 2.f);
 
     // scaletime = (param - 2 / 3) * 6 so
     // param = scaleTime / 6 + 2/ 3
