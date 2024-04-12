@@ -293,7 +293,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         _DBGMARK;
         return true;
     }
-    void onPosixFd(int fd, int flags) noexcept override;
+    void onPosixFd(int fd, clap_posix_fd_flags_t flags) noexcept override;
     bool registerPosixFd(int fd);
     bool unregisterPosixFD(int fd);
 
