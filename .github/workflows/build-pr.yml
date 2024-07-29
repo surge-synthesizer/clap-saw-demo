@@ -1,0 +1,47 @@
+name: Build Pull Request
+on:
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build_plugin:
+    name: PR - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+          - os: macos-latest
+          - os: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: VSGTUI Extras for Linux
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            devscripts \
+            libxcb-cursor-dev \
+            libxcb-keysyms1-dev \
+            libxcb-util-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            ninja-build \
+            libcogl-pango-dev \
+            libpangoft2-1.0-0 \
+            libpango-1.0-0 \
+            libgtk-3-dev \
+            libgtkmm-3.0-dev \
+            xcb
+
+      - name: Build pull request version
+        run: |
+          cmake -S . -B ./build -DCMAKE_BUILD_TYPE=Debug 
+          cmake --build ./build --config Debug --target clap-saw-demo --parallel 3

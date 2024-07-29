@@ -42,7 +42,8 @@ bool ClapSawDemo::guiIsApiSupported(const char *api, bool isFloating) noexcept
 #endif
 
 #if IS_LINUX
-    if (_host.canUseTimerSupport() && _host.canUsePosixFdSupport() && strcmp(api, CLAP_WINDOW_API_X11) == 0)
+    if (_host.canUseTimerSupport() && _host.canUsePosixFdSupport() &&
+        strcmp(api, CLAP_WINDOW_API_X11) == 0)
         return true;
 #endif
 
@@ -308,7 +309,8 @@ void ClapSawDemoEditor::setupUI()
     frame->addView(repoLabel);
 
     auto sl = std::string("MIT License; CLAP v.") + std::to_string(CLAP_VERSION_MAJOR) + "." +
-              std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION) + "; Built: " + __DATE__ + " @ " + __TIME__;
+              std::to_string(CLAP_VERSION_MINOR) + "." + std::to_string(CLAP_VERSION_REVISION) +
+              "; Built: " + __DATE__ + " @ " + __TIME__;
     l = new VSTGUI::CTextLabel(
         VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - applyUIScale(20)),
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
