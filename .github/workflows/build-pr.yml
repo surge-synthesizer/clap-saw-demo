@@ -22,16 +22,24 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Prepare for JUCE (which helps with VSTGUI)
-        uses: surge-synthesizer/sst-githubactions/prepare-for-juce@main
-        with:
-          os: ${{ runner.os }}
-
       - name: VSGTUI Extras for Linux
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get install -u libxcb-util-dev
-
+          sudo apt-get update
+          sudo apt-get install -y \
+            devscripts \
+            libxcb-cursor-dev \
+            libxcb-keysyms1-dev \
+            libxcb-util-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            ninja-build \
+            libcogl-pango-dev \
+            libpangoft2-1.0-0 \
+            libpango-1.0-0 \
+            libgtk-3-dev \
+            libgtkmm-3.0-dev \
+            xcb
 
       - name: Build pull request version
         run: |
