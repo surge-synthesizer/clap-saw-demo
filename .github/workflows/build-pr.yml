@@ -28,7 +28,7 @@ jobs:
           os: ${{ runner.os }}
 
       - name: VSGTUI Extras for Linux
-        if: ${{ runner.os }} == "Linux"
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get install -u libxcb-util-dev
 
