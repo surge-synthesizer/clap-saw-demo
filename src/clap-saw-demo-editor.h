@@ -66,6 +66,8 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     VSTGUI::CTextLabel *topLabel{nullptr}, *repoLabel{nullptr}, *bottomLabel{nullptr},
         *statusLabel{nullptr};
 
+    VSTGUI::CFontRef knF, knFVeryBig, knFSmall, knFSmaller;
+
     VSTGUI::CTextLabel *ampLabel{nullptr};
     VSTGUI::CCheckBox *ampToggle{nullptr};
     VSTGUI::CSlider *ampAttack{nullptr}, *ampRelease{nullptr};

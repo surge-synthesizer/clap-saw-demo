@@ -262,13 +262,15 @@ void ClapSawDemoEditor::setupUI()
 {
     auto scaleFont = [this](VSTGUI::CFontRef font)
     {
-        font->setSize(font->getSize() * uiScale);
-        return font;
+        auto res = VSTGUI::makeOwned<VSTGUI::CFontDesc>(*font);
+        res->setSize(res->getSize() * uiScale);
+        res->remember();
+        return res;
     };
-    scaleFont(VSTGUI::kNormalFont);
-    scaleFont(VSTGUI::kNormalFontVeryBig);
-    scaleFont(VSTGUI::kNormalFontSmall);
-    scaleFont(VSTGUI::kNormalFontSmaller);
+    knF = scaleFont(VSTGUI::kNormalFont);
+    knFVeryBig = scaleFont(VSTGUI::kNormalFontVeryBig);
+    knFSmall = scaleFont(VSTGUI::kNormalFontSmall);
+    knFSmaller = scaleFont(VSTGUI::kNormalFontSmaller);
 
     // Resize as we should now have our scale
     frame->setSize(applyUIScale(ClapSawDemo::GUI_DEFAULT_W),
@@ -283,7 +285,7 @@ void ClapSawDemoEditor::setupUI()
     auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), applyUIScale(40)),
                                     "Clap Saw Synth Demo");
     l->setTransparency(true);
-    l->setFont(VSTGUI::kNormalFontVeryBig);
+    l->setFont(knFVeryBig);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     topLabel = l;
     frame->addView(topLabel);
@@ -293,7 +295,7 @@ void ClapSawDemoEditor::setupUI()
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
         "poly=0");
     l->setTransparency(true);
-    l->setFont(VSTGUI::kNormalFont);
+    l->setFont(knF);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     statusLabel = l;
     frame->addView(statusLabel);
@@ -303,7 +305,7 @@ void ClapSawDemoEditor::setupUI()
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
         "https://github.com/surge-synthesizer/clap-saw-demo");
     l->setTransparency(true);
-    l->setFont(VSTGUI::kNormalFontSmall);
+    l->setFont(knFSmall);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     repoLabel = l;
     frame->addView(repoLabel);
@@ -316,7 +318,7 @@ void ClapSawDemoEditor::setupUI()
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
         sl.c_str());
     l->setTransparency(true);
-    l->setFont(VSTGUI::kNormalFontSmaller);
+    l->setFont(knFSmaller);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     bottomLabel = l;
     frame->addView(bottomLabel);
@@ -338,7 +340,7 @@ void ClapSawDemoEditor::setupUI()
             VSTGUI::CPoint(applyUIScale(x) - applyUIScale(10), applyUIScale(y) + applyUIScale(155)),
             VSTGUI::CPoint(applyUIScale(45), applyUIScale(15))));
         l->setText(label.c_str());
-        l->setFont(VSTGUI::kNormalFont);
+        l->setFont(knF);
 
         frame->addView(l);
         return q;
