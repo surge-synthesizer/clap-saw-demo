@@ -331,11 +331,18 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
         double value;
     };
 
+    /*
+     * For some UI display information, we have a shared bundle of values which
+     * we keep in the editor as a const &
+     */
     struct DataCopyForUI
     {
         std::atomic<uint32_t> updateCount{0};
         std::atomic<bool> isProcessing{false};
         std::atomic<int> polyphony{0};
+        std::atomic<double> tempo{0};
+        std::atomic<int> tsNum{0}, tsDen{0};
+        std::atomic<double> songpos{0};
     } dataCopyForUI;
 
     typedef moodycamel::ReaderWriterQueue<ToUI, 4096> SynthToUI_Queue_t;

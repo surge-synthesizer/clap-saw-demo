@@ -4,6 +4,9 @@
 
 #include "clap-saw-demo-editor.h"
 #include "clap-saw-demo.h"
+#include <sstream>
+#include <iomanip>
+
 #include <vstgui/lib/vstguiinit.h>
 #include "vstgui/lib/finally.h"
 
@@ -282,7 +285,7 @@ void ClapSawDemoEditor::setupUI()
     backgroundRender->uiScale = uiScale;
     frame->addView(backgroundRender);
 
-    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), applyUIScale(40)),
+    auto l = new VSTGUI::CTextLabel(VSTGUI::CRect(0, 0, getFrame()->getWidth(), applyUIScale(25)),
                                     "Clap Saw Synth Demo");
     l->setTransparency(true);
     l->setFont(knFVeryBig);
@@ -295,10 +298,20 @@ void ClapSawDemoEditor::setupUI()
                       VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
         "poly=0");
     l->setTransparency(true);
-    l->setFont(knF);
+    l->setFont(knFSmall);
     l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
     statusLabel = l;
     frame->addView(statusLabel);
+
+    l = new VSTGUI::CTextLabel(
+        VSTGUI::CRect(VSTGUI::CPoint(0, applyUIScale(27)),
+                      VSTGUI::CPoint(getFrame()->getWidth(), applyUIScale(20))),
+        "transport=0");
+    l->setTransparency(true);
+    l->setFont(knFSmall);
+    l->setHoriAlign(VSTGUI::CHoriTxtAlign::kCenterText);
+    transportLabel = l;
+    frame->addView(transportLabel);
 
     l = new VSTGUI::CTextLabel(
         VSTGUI::CRect(VSTGUI::CPoint(0, getFrame()->getHeight() - applyUIScale(40)),
@@ -414,12 +427,17 @@ void ClapSawDemoEditor::resize()
     backgroundRender->setViewSize(VSTGUI::CRect(0, 0, w, h));
     backgroundRender->invalid();
 
-    topLabel->setViewSize(VSTGUI::CRect(0, 0, w, applyUIScale(40)));
+    topLabel->setViewSize(VSTGUI::CRect(0, 0, w, applyUIScale(25)));
     topLabel->invalid();
 
     statusLabel->setViewSize(
         VSTGUI::CRect(VSTGUI::CPoint(0, applyUIScale(40)), VSTGUI::CPoint(w, applyUIScale(20))));
     statusLabel->invalid();
+
+    transportLabel->setViewSize(
+        VSTGUI::CRect(VSTGUI::CPoint(0, applyUIScale(27)), VSTGUI::CPoint(w, applyUIScale(20))));
+    transportLabel->invalid();
+
     repoLabel->setViewSize(VSTGUI::CRect(VSTGUI::CPoint(0, h - applyUIScale(40)),
                                          VSTGUI::CPoint(w, applyUIScale(20))));
     repoLabel->invalid();
@@ -585,6 +603,12 @@ void ClapSawDemoEditor::idle()
         backgroundRender->isProcessing = synthData.isProcessing;
         backgroundRender->invalid();
     }
+
+    std::ostringstream oss;
+    oss << "tempo=" << synthData.tempo << " ts=" << synthData.tsNum << "/" << synthData.tsDen
+        << " songpos=" << std::setprecision(8) << synthData.songpos;
+    transportLabel->setText(oss.str().c_str());
+    transportLabel->invalid();
 }
 void ClapSawDemoEditor::setUIScale(double scale)
 {

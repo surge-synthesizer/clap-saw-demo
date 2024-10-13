@@ -64,7 +64,7 @@ struct ClapSawDemoEditor : public VSTGUI::VSTGUIEditorInterface, public VSTGUI::
     ClapSawDemoBackground *backgroundRender{nullptr};
     // These are all weak references owned by the frame
     VSTGUI::CTextLabel *topLabel{nullptr}, *repoLabel{nullptr}, *bottomLabel{nullptr},
-        *statusLabel{nullptr};
+        *statusLabel{nullptr}, *transportLabel{nullptr};
 
     VSTGUI::CFontRef knF, knFVeryBig, knFSmall, knFSmaller;
 

@@ -356,9 +356,18 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * Stage 1:
      *
      * The UI can send us gesture begin/end events which translate in to a
-     * `clap_event_param_gesture` or value adjustments.
+     * `clap_event_param_gesture` or value adjustments. Handle those.
      */
     handleEventsFromUIQueue(process->out_events);
+
+    /*
+     * and then update transport information for the display on our
+     * shared state object
+     */
+    dataCopyForUI.tempo = process->transport->tempo;
+    dataCopyForUI.tsDen = process->transport->tsig_denom;
+    dataCopyForUI.tsNum = process->transport->tsig_num;
+    dataCopyForUI.songpos = 1.0 * process->transport->song_pos_beats / CLAP_BEATTIME_FACTOR;
 
     /*
      * Stage 2: Create the AUDIO output and process events
