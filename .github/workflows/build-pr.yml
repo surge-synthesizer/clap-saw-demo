@@ -8,14 +8,32 @@ defaults:
 
 jobs:
   build_plugin:
-    name: PR - ${{ matrix.os }}
+    name: PR - ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
           - os: windows-latest
+            name: windows ui
+
           - os: macos-latest
+            name: mac ui
+
           - os: ubuntu-latest
+            name: linux ui
+
+          - os: windows-latest
+            name: windows no ui
+            cmakeConfig: -DCSD_INCLUDE_UI=False
+
+          - os: macos-latest
+            name: mac no ui
+            cmakeConfig: -DCSD_INCLUDE_UI=False
+
+          - os: ubuntu-latest
+            name: linux no ui
+            cmakeConfig: -DCSD_INCLUDE_UI=False
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -43,5 +61,5 @@ jobs:
 
       - name: Build pull request version
         run: |
-          cmake -S . -B ./build -DCMAKE_BUILD_TYPE=Debug 
+          cmake -S . -B ./build -DCMAKE_BUILD_TYPE=Debug ${{ matrix.cmakeConfig }}
           cmake --build ./build --config Debug --target clap-saw-demo --parallel 3

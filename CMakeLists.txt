@@ -18,6 +18,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # use asan as an option (currently mac only)
 option(USE_SANITIZER "Build and link with ASAN" FALSE)
+option(CSD_INCLUDE_GUI "Include a GUI in ClapSawDemo" TRUE)
 
 # Copy on mac (could expand to other platforms)
 option(COPY_AFTER_BUILD "Copy the clap to ~/Library on MACOS, ~/.clap on linux" FALSE)
@@ -25,23 +26,39 @@ option(COPY_AFTER_BUILD "Copy the clap to ~/Library on MACOS, ~/.clap on linux" 
 add_subdirectory(libs/clap EXCLUDE_FROM_ALL)
 add_subdirectory(libs/clap-helpers EXCLUDE_FROM_ALL)
 add_subdirectory(libs/readerwriterqueue EXCLUDE_FROM_ALL)
-add_subdirectory(libs/vstgui EXCLUDE_FROM_ALL)
-if (APPLE)
+if (${CSD_INCLUDE_GUI})
+    message(STATUS "Including VSTGUI")
+    add_subdirectory(libs/vstgui EXCLUDE_FROM_ALL)
+else()
+    message(STATUS "GUI Bypassed. headless CSD generated")
+endif()
+if (APPLE AND ${CSD_INCLUDE_GUI})
   target_compile_options(vstgui PRIVATE -Wno-deprecated-declarations)
 endif()
 
 
 add_library(${PROJECT_NAME} MODULE
         src/clap-saw-demo.cpp
-        src/clap-saw-demo-editor.cpp
         src/saw-voice.cpp
-        src/clap-saw-demo-pluginentry.cpp src/linux-vstgui-adapter.cpp src/linux-vstgui-adapter.h)
-target_link_libraries(${PROJECT_NAME} vstgui clap-core clap-helpers readerwriterqueue)
+        src/clap-saw-demo-pluginentry.cpp
+)
+target_link_libraries(${PROJECT_NAME} clap-core clap-helpers readerwriterqueue)
 
-# VSTGUI doesn't include the include paths and compile definitions in the library
-# targets like other CMake libraries do, so explicitly include them here
-target_include_directories(${PROJECT_NAME} PUBLIC libs/vstgui)
-target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GUI=1 ${VSTGUI_COMPILE_DEFINITIONS})
+if (${CSD_INCLUDE_GUI})
+    target_sources(${PROJECT_NAME} PRIVATE
+    src/clap-saw-demo-editor.cpp
+    src/linux-vstgui-adapter.cpp src/linux-vstgui-adapter.h)
+    target_link_libraries(${PROJECT_NAME} vstgui)
+else()
+    message(STATUS "Skipping GUI generation")
+endif()
+
+if (${CSD_INCLUDE_GUI})
+    # VSTGUI doesn't include the include paths and compile definitions in the library
+    # targets like other CMake libraries do, so explicitly include them here
+    target_include_directories(${PROJECT_NAME} PUBLIC libs/vstgui)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAS_GUI=1 ${VSTGUI_COMPILE_DEFINITIONS})
+endif()
 
 if(APPLE)
     set_target_properties(${PROJECT_NAME} PROPERTIES
