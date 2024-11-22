@@ -68,6 +68,11 @@ jobs:
     name: emscripten test build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
       - uses: mymindstorm/setup-emsdk@v14
 
       - name: Build pull request version
