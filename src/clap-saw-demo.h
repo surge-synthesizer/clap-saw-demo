@@ -207,17 +207,22 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
      */
     bool startProcessing() noexcept override
     {
+#if HAS_GUI
         dataCopyForUI.isProcessing = true;
         dataCopyForUI.updateCount++;
+#endif
         return true;
     }
     void stopProcessing() noexcept override
     {
+#if HAS_GUI
         dataCopyForUI.isProcessing = false;
         dataCopyForUI.updateCount++;
+#endif
     }
 
   protected:
+#if HAS_GUI
     /*
      * OK so now you see how the engine works. Great! But how does the GUI work?
      * CLAP is based on extensions and the core gui extension has a simple
@@ -266,13 +271,14 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
     // Setting this atomic to true will force a push of all current engine
     // params to ui using the queue mechanism
     std::atomic<bool> refreshUIValues{false};
+#endif
 
     // This is an API point the editor can call back to request the host to flush
     // bound by a lambda to the editor. For a technical template reason its implemented
     // (trivially) in clap-saw-demo.cpp not demo-editor
     void editorParamsFlush();
 
-#if IS_LINUX
+#if IS_LINUX && HAS_GUI
     // PLEASE see the README comments on Linux. We are working on making this more rational
     // but the VSTGUI global plus runnign a bit out of time has this implementation right now
     // which can leak or crash in some circumstances when you delete a plugin. Expect updates
@@ -300,6 +306,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 #endif
 
   public:
+#if HAS_GUI
     static constexpr uint32_t GUI_DEFAULT_W = 390, GUI_DEFAULT_H = 530;
 
     /*
@@ -353,6 +360,7 @@ struct ClapSawDemo : public clap::helpers::Plugin<clap::helpers::MisbehaviourHan
 
   private:
     ClapSawDemoEditor *editor{nullptr};
+#endif
 
     // These items are ONLY read and written on the audio thread, so they
     // are safe to be non-atomic doubles. We keep a map to locate them

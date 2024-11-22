@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 // Eject the core symbols for the plugin
 #include <clap/helpers/plugin.hh>
@@ -40,10 +41,12 @@ ClapSawDemo::ClapSawDemo(const clap_host *host)
 }
 ClapSawDemo::~ClapSawDemo()
 {
+#if HAS_GUI
     // I *think* this is a bitwig bug that they won't call guiDestroy if destroying a plugin
     // with an open window but
     if (editor)
         guiDestroy();
+#endif
 }
 
 const char *features[] = {CLAP_PLUGIN_FEATURE_INSTRUMENT, CLAP_PLUGIN_FEATURE_SYNTHESIZER, nullptr};
@@ -360,6 +363,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      */
     handleEventsFromUIQueue(process->out_events);
 
+#if HAS_GUI
     /*
      * and then update transport information for the display on our
      * shared state object
@@ -368,6 +372,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
     dataCopyForUI.tsDen = process->transport->tsig_denom;
     dataCopyForUI.tsNum = process->transport->tsig_num;
     dataCopyForUI.songpos = 1.0 * process->transport->song_pos_beats / CLAP_BEATTIME_FACTOR;
+#endif
 
     /*
      * Stage 2: Create the AUDIO output and process events
@@ -469,8 +474,10 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
 
         ov->try_push(ov, &(evt.header));
 
+#if HAS_GUI
         dataCopyForUI.updateCount++;
         dataCopyForUI.polyphony--;
+#endif
     }
     terminatedVoices.clear();
 
@@ -575,6 +582,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
         *paramToValue[v->param_id] = v->value;
         pushParamsToVoices();
 
+#if HAS_GUI
         if (editor)
         {
             auto r = ToUI();
@@ -584,6 +592,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 
             toUiQ.try_enqueue(r);
         }
+#endif
     }
     break;
     /*
@@ -710,6 +719,7 @@ void ClapSawDemo::handleInboundEvent(const clap_event_header_t *evt)
 
 void ClapSawDemo::handleEventsFromUIQueue(const clap_output_events_t *ov)
 {
+#if HAS_GUI
     bool uiAdjustedValues{false};
     ClapSawDemo::FromUI r;
     while (fromUiQ.try_dequeue(r))
@@ -771,6 +781,7 @@ void ClapSawDemo::handleEventsFromUIQueue(const clap_output_events_t *ov)
 
     if (uiAdjustedValues)
         pushParamsToVoices();
+#endif
 }
 
 /*
@@ -800,6 +811,7 @@ void ClapSawDemo::handleNoteOn(int port_index, int channel, int key, int noteid)
         activateVoice(v, port_index, channel, key, noteid);
     }
 
+#if HAS_GUI
     dataCopyForUI.updateCount++;
     dataCopyForUI.polyphony++;
 
@@ -810,6 +822,7 @@ void ClapSawDemo::handleNoteOn(int port_index, int channel, int key, int noteid)
         r.id = (uint32_t)key;
         toUiQ.try_enqueue(r);
     }
+#endif
 }
 
 void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
@@ -822,6 +835,7 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
         }
     }
 
+#if HAS_GUI
     if (editor)
     {
         auto r = ToUI();
@@ -829,6 +843,7 @@ void ClapSawDemo::handleNoteOff(int port_index, int channel, int n)
         r.id = (uint32_t)n;
         toUiQ.try_enqueue(r);
     }
+#endif
 }
 
 void ClapSawDemo::activateVoice(SawDemoVoice &v, int port_index, int channel, int key, int noteid)
@@ -1024,7 +1039,7 @@ void ClapSawDemo::editorParamsFlush()
         _host.paramsRequestFlush();
 }
 
-#if IS_LINUX
+#if IS_LINUX && HAS_GUI
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
     auto res = _host.timerSupportRegister(interv, id);
