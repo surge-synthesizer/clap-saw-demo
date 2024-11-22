@@ -8,6 +8,7 @@
 #include <iostream>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 // Eject the core symbols for the plugin
 #include <clap/helpers/plugin.hh>
