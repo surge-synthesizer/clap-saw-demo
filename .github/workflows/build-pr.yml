@@ -63,3 +63,14 @@ jobs:
         run: |
           cmake -S . -B ./build -DCMAKE_BUILD_TYPE=Debug ${{ matrix.cmakeConfig }}
           cmake --build ./build --config Debug --target clap-saw-demo --parallel 3
+
+  build-plugin-emscripten:
+    name: emscripten test build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mymindstorm/setup-emsdk@v14
+
+      - name: Build pull request version
+        run: |
+          emcmake cmake -S . -B ./build -DCMAKE_BUILD_TYPE=Debug -DCSD_INCLUDE_GUI=False
+          cmake --build ./build --config Debug --target clap-saw-demo --parallel 3
