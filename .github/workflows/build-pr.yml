@@ -24,15 +24,15 @@ jobs:
 
           - os: windows-latest
             name: windows no ui
-            cmakeConfig: -DCSD_INCLUDE_UI=False
+            cmakeConfig: -DCSD_INCLUDE_GUI=False
 
           - os: macos-latest
             name: mac no ui
-            cmakeConfig: -DCSD_INCLUDE_UI=False
+            cmakeConfig: -DCSD_INCLUDE_GUI=False
 
           - os: ubuntu-latest
             name: linux no ui
-            cmakeConfig: -DCSD_INCLUDE_UI=False
+            cmakeConfig: -DCSD_INCLUDE_GUI=False
 
     steps:
       - name: Checkout code
