@@ -1038,7 +1038,7 @@ void ClapSawDemo::editorParamsFlush()
         _host.paramsRequestFlush();
 }
 
-#if IS_LINUX
+#if IS_LINUX && HAS_GUI
 bool ClapSawDemo::registerTimer(uint32_t interv, clap_id *id)
 {
     auto res = _host.timerSupportRegister(interv, id);
