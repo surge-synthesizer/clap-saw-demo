@@ -368,7 +368,7 @@ clap_process_status ClapSawDemo::process(const clap_process *process) noexcept
      * and then update transport information for the display on our
      * shared state object
      */
-    if ( process->transport ) {
+    if (process->transport) {
       dataCopyForUI.tempo = process->transport->tempo;
       dataCopyForUI.tsDen = process->transport->tsig_denom;
       dataCopyForUI.tsNum = process->transport->tsig_num;
